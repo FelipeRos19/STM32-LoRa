@@ -56,7 +56,34 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void JumpToBootloader(void)
+{
+  uint32_t i=0;
 
+  /* Disable all interrupts */
+  __disable_irq();
+
+  /* Disable SysTick */
+  SysTick->CTRL = 0;
+
+  /* Clear all interrupt pending bits */
+  for(i=0; i<5; i++)
+  {
+    NVIC->ICER[i] = 0xFFFFFFFF;
+    NVIC->ICPR[i] = 0xFFFFFFFF;
+  }
+
+  __enable_irq();
+
+  /* STM32WLE5 system memory address */
+  void (*SysMemBootJump)(void) = (void (*)(void)) (*((uint32_t *) (0x1FFF0004)));
+
+  /* Set MSP */
+  __set_MSP(*(uint32_t *)0x1FFF0000);
+
+  /* Jump */
+  SysMemBootJump();
+}
 /* USER CODE END 0 */
 
 /**
@@ -88,18 +115,30 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_SubGHz_Phy_Init();
   MX_USART2_UART_Init();
-  MX_USART1_UART_Init();
+  MX_SubGHz_Phy_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  uint8_t buf;
+
   while (1)
   {
     /* USER CODE END WHILE */
+    if (HAL_UART_Receive(&huart2, &buf, 1, 100) == HAL_OK)
+    {
+      if (buf == 'B')
+      {
+        HAL_UART_Transmit(&huart2, (uint8_t*)"Jumping to bootloader...\r\n", 26, 100);
+        HAL_Delay(100);
+        JumpToBootloader();
+      }
+      HAL_UART_Transmit(&huart2, &buf, 1, 100);
+    }
+
     MX_SubGHz_Phy_Process();
 
     /* USER CODE BEGIN 3 */
