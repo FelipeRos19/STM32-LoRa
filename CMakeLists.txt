@@ -82,7 +82,7 @@ set(FLASH_BAUD "115200"       CACHE STRING "Baud rate for UART flashing")
 add_custom_target(flash
     DEPENDS ${CMAKE_PROJECT_NAME}
     COMMAND STM32_Programmer_CLI
-        --connect port=${FLASH_PORT} br=${FLASH_BAUD} rts=1 dtr=0
+        --connect port=${FLASH_PORT} br=${FLASH_BAUD} #rts="high" dtr="low"
         --write ${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}.bin 0x08000000
         --verify
         --go 0x08000000
