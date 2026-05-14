@@ -66,3 +66,25 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
 
     # Add user defined libraries
 )
+
+# Generate .bin from .elf
+add_custom_command(TARGET ${CMAKE_PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_OBJCOPY} -O binary
+        $<TARGET_FILE:${CMAKE_PROJECT_NAME}>
+        ${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}.bin
+    COMMENT "Generating binary: ${CMAKE_PROJECT_NAME}.bin"
+)
+
+# Flash target via UART using STM32CubeProgrammer
+set(FLASH_PORT "/dev/ttyUSB0" CACHE STRING "Serial port for UART flashing")
+set(FLASH_BAUD "115200"       CACHE STRING "Baud rate for UART flashing")
+
+add_custom_target(flash
+    DEPENDS ${CMAKE_PROJECT_NAME}
+    COMMAND STM32_Programmer_CLI
+        --connect port=${FLASH_PORT} br=${FLASH_BAUD} rts=1 dtr=0
+        --write ${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}.bin 0x08000000
+        --verify
+        --go 0x08000000
+    COMMENT "Flashing ${CMAKE_PROJECT_NAME}.bin to STM32 via UART on ${FLASH_PORT}"
+)
