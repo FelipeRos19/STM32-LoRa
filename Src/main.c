@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "aes.h"
 #include "app_subghz_phy.h"
 #include "usart.h"
 #include "gpio.h"
@@ -117,6 +118,7 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   MX_SubGHz_Phy_Init();
+  MX_AES_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -127,7 +129,6 @@ int main(void)
 
   while (1)
   {
-    /* USER CODE END WHILE */
     if (HAL_UART_Receive(&huart2, &buf, 1, 100) == HAL_OK)
     {
       if (buf == 'B')
@@ -139,6 +140,9 @@ int main(void)
       HAL_UART_Transmit(&huart2, &buf, 1, 100);
     }
 
+    MX_SubGHz_Phy_Process();
+
+    /* USER CODE END WHILE */
     MX_SubGHz_Phy_Process();
 
     /* USER CODE BEGIN 3 */
