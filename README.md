@@ -1,6 +1,6 @@
 ## Build/Flash:
 ### Build:
-Para buildar o projeto em modo Debug rode o comando: `cmake --build --preset <Debug | Release>`  
+Para buildar o projeto em modo rode o comando: `cmake --build --preset <Debug | Release>`  
 O arquivo de firmware **.bin** será gerado em `build/Debug/` ou `build/Release/`
 
 
@@ -10,7 +10,7 @@ O modo *Release* é mais dificil para debugging, mas é mais otimizado.
 Ao usar a tag `--target flash` no comando de build do CMake, uma conexão serial vai ser aberta usando *STM32_Programmer_CLI* e o novo firmware será gravado no módulo automaticamente.
 
 ### Flashing pelo STM32_Programmer_CLI:
-Se quiser somente dar flash na placa sem buildar rode:  
+Se quiser somente dar flash na placa sem buildar, rode:  
 ```bash
 STM32_Programmer_CLI \
         --connect port=<porta> br=115200 \
