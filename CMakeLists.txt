@@ -76,15 +76,21 @@ add_custom_command(TARGET ${CMAKE_PROJECT_NAME} POST_BUILD
 )
 
 # Flash target via UART using STM32CubeProgrammer
-set(FLASH_PORT "/dev/ttyUSB0" CACHE STRING "Serial port for UART flashing")
+#
+# This flashes via a small helper script so we can:
+#  - interactively ask which serial port to use
+#  - kill processes that currently hold the serial device(s)
+set(FLASH_PORT "/dev/ttyUSB0" CACHE STRING "Default serial port for UART flashing (used as prompt default)")
 set(FLASH_BAUD "115200"       CACHE STRING "Baud rate for UART flashing")
+set(FLASH_KILL_ALL ON          CACHE BOOL   "Kill processes using /dev/ttyUSB* and /dev/ttyACM* before flashing")
 
 add_custom_target(flash
     DEPENDS ${CMAKE_PROJECT_NAME}
-    COMMAND STM32_Programmer_CLI
-        --connect port=${FLASH_PORT} br=${FLASH_BAUD} #rts="high" dtr="low"
-        --write ${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}.bin 0x08000000
-        --verify
-        --go 0x08000000
-    COMMENT "Flashing ${CMAKE_PROJECT_NAME}.bin to STM32 via UART on ${FLASH_PORT}"
+    COMMAND sh ${CMAKE_SOURCE_DIR}/tools/flash_uart.sh
+        ${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}.bin
+        ${FLASH_BAUD}
+        ${FLASH_PORT}
+        ${FLASH_KILL_ALL}
+    USES_TERMINAL
+    COMMENT "Flashing ${CMAKE_PROJECT_NAME}.bin to STM32 via UART (will prompt for port)"
 )
