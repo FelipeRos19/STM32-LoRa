@@ -74,9 +74,12 @@ int32_t RBI_Init(void)
   return BSP_RADIO_Init();
 #else
   /* 2/ Or implement RBI_Init here */
+  /* EBYTE E77 module carrier: no external RF switch/TCXO control required.
+   * Keep as no-op.
+   */
   int32_t retcode = 0;
   /* USER CODE BEGIN RBI_Init_2 */
-#warning user to provide its board code or to call his board driver functions
+  /* no-op */
   /* USER CODE END RBI_Init_2 */
   return retcode;
 #endif  /* USE_BSP_DRIVER  */
@@ -100,9 +103,10 @@ int32_t RBI_DeInit(void)
   return BSP_RADIO_DeInit();
 #else
   /* 2/ Or implement RBI_DeInit here */
+  /* No-op for this board. */
   int32_t retcode = 0;
   /* USER CODE BEGIN RBI_DeInit_2 */
-#warning user to provide its board code or to call his board driver functions
+  /* no-op */
   /* USER CODE END RBI_DeInit_2 */
   return retcode;
 #endif  /* USE_BSP_DRIVER */
@@ -127,9 +131,13 @@ int32_t RBI_ConfigRFSwitch(RBI_Switch_TypeDef Config)
   return BSP_RADIO_ConfigRFSwitch((BSP_RADIO_Switch_TypeDef) Config);
 #else
   /* 2/ Or implement RBI_ConfigRFSwitch here */
+  /* EBYTE E77 module carrier: RF path is fixed (single RF pin + matching network).
+   * No external RF switch GPIOs to toggle.
+   */
+  (void)Config;
   int32_t retcode = 0;
   /* USER CODE BEGIN RBI_ConfigRFSwitch_2 */
-#warning user to provide its board code or to call his board driver functions
+  /* no-op */
   /* USER CODE END RBI_ConfigRFSwitch_2 */
   return retcode;
 #endif  /* USE_BSP_DRIVER */
@@ -153,9 +161,10 @@ int32_t RBI_GetTxConfig(void)
   return BSP_RADIO_GetTxConfig();
 #else
   /* 2/ Or implement RBI_GetTxConfig here */
+  /* Return the PA path(s) routed to the antenna. For E77-xxxM22S, use HP. */
   int32_t retcode = RBI_CONF_RFO;
   /* USER CODE BEGIN RBI_GetTxConfig_2 */
-#warning user to provide its board code or to call his board driver functions
+  /* no-op */
   /* USER CODE END RBI_GetTxConfig_2 */
   return retcode;
 #endif  /* USE_BSP_DRIVER */
@@ -181,7 +190,7 @@ int32_t RBI_IsTCXO(void)
   /* 2/ Or implement RBI_IsTCXO here */
   int32_t retcode = IS_TCXO_SUPPORTED;
   /* USER CODE BEGIN RBI_IsTCXO_2 */
-#warning user to provide its board code or to call his board driver functions
+  /* no-op */
   /* USER CODE END RBI_IsTCXO_2 */
   return retcode;
 #endif  /* USE_BSP_DRIVER  */
@@ -207,7 +216,7 @@ int32_t RBI_IsDCDC(void)
   /* 2/ Or implement RBI_IsDCDC here */
   int32_t retcode = IS_DCDC_SUPPORTED;
   /* USER CODE BEGIN RBI_IsDCDC_2 */
-#warning user to provide its board code or to call his board driver functions
+  /* no-op */
   /* USER CODE END RBI_IsDCDC_2 */
   return retcode;
 #endif  /* USE_BSP_DRIVER  */
@@ -233,7 +242,6 @@ int32_t RBI_GetRFOMaxPowerConfig(RBI_RFOMaxPowerConfig_TypeDef Config)
   /* 2/ Or implement RBI_RBI_GetRFOMaxPowerConfig here */
   int32_t ret = 0;
   /* USER CODE BEGIN RBI_GetRFOMaxPowerConfig_2 */
-#warning user to provide its board code or to call his board driver functions
   if (Config == RBI_RFO_LP_MAXPOWER)
   {
     ret = 15; /*dBm*/

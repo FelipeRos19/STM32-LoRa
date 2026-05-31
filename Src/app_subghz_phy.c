@@ -74,16 +74,6 @@ void MX_SubGHz_Phy_Init(void)
   /* USER CODE END MX_SubGHz_Phy_Init_2 */
 }
 
-void MX_SubGHz_Phy_Process(void)
-{
-  /* USER CODE BEGIN MX_SubGHz_Phy_Process_1 */
-
-  /* USER CODE END MX_SubGHz_Phy_Process_1 */
-  /* USER CODE BEGIN MX_SubGHz_Phy_Process_OS */
-
-  /* USER CODE END MX_SubGHz_Phy_Process_OS */
-}
-
 /* USER CODE BEGIN EF */
 
 /* USER CODE END EF */

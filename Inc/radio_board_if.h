@@ -61,9 +61,11 @@ extern "C" {
 /* USER CODE BEGIN Exported Parameters */
 
 /* USER CODE END Exported Parameters */
-/* Indicates the type of switch between the ones proposed by CONFIG Constants
+/* Indicates the type of PA path the board/module actually routes to the antenna.
+ * EBYTE E77-xxxM22S (22 dBm) modules typically route the High Power PA (RFO_HP)
+ * to the RF matching network.
  */
-#define RBI_CONF_RFO                        RBI_CONF_RFO_LP_HP
+#define RBI_CONF_RFO                        RBI_CONF_RFO_HP
 
 /* Indicates whether or not TCXO is supported by the board
  * 0: TCXO not supported
@@ -89,7 +91,10 @@ extern "C" {
 
 #else
 /* USER CODE BEGIN Exported PinMapping */
-#warning user to provide its board definitions pins
+/* No external RF switch GPIOs are used on the E77 module carrier (single RF pin + matching).
+ * If your specific carrier adds an external RF switch, define its GPIOs here and implement
+ * RBI_ConfigRFSwitch() accordingly.
+ */
 /* USER CODE END Exported PinMapping */
 #endif  /* USE_BSP_DRIVER  */
 
