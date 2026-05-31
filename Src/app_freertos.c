@@ -28,6 +28,7 @@
 #include "app_subghz_phy.h"
 #include "radio.h"
 #include "usart.h"
+#include "iwdg.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -58,7 +59,7 @@ osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
   .priority = (osPriority_t) osPriorityNormal,
-  .stack_size = 256 * 4
+  .stack_size = 1024 * 4
 };
 /* Definitions for radioTask */
 osThreadId_t radioTaskHandle;
@@ -196,6 +197,8 @@ void StartDefaultTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
+    /* Keep the watchdog happy during bring-up */
+    (void)HAL_IWDG_Refresh(&hiwdg);
     osDelay(1000);
   }
   /* USER CODE END StartDefaultTask */
@@ -257,14 +260,30 @@ void StartRoutingTask(void *argument)
 void StartUARTTask(void *argument)
 {
   /* USER CODE BEGIN StartUARTTask */
-  /* Wait for radio init so we can add commands later */
-  (void)osEventFlagsWait(appEventFlagsHandle, APP_EVT_RADIO_READY, osFlagsWaitAny, osWaitForever);
+  extern void JumpToBootloader(void);
 
-  (void)HAL_UART_Transmit(&huart2, (uint8_t*)"UART ready\r\n", 12, 100);
+  /* Print immediately (don’t depend on radio init). */
+  (void)HAL_UART_Transmit(&huart2, (uint8_t*)"UART task start\r\n", (uint16_t)(sizeof("UART task start\r\n") - 1U), 100);
+  (void)HAL_UART_Transmit(&huart2, (uint8_t*)"Type B to jump bootloader\r\n", (uint16_t)(sizeof("Type B to jump bootloader\r\n") - 1U), 100);
 
+  uint8_t b;
   for(;;)
   {
-    osDelay(1000);
+    if (HAL_UART_Receive(&huart2, &b, 1, 100) == HAL_OK)
+    {
+      if (b == 'B')
+      {
+        (void)HAL_UART_Transmit(&huart2, (uint8_t*)"Jumping to bootloader...\r\n", (uint16_t)(sizeof("Jumping to bootloader...\r\n") - 1U), 100);
+        osDelay(50);
+        JumpToBootloader();
+      }
+
+      /* simple echo */
+      (void)HAL_UART_Transmit(&huart2, &b, 1, 100);
+    }
+
+    (void)HAL_IWDG_Refresh(&hiwdg);
+    osDelay(1);
   }
   /* USER CODE END StartUARTTask */
 }

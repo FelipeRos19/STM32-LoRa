@@ -54,7 +54,11 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+/* Boot progress marker to debug early hangs without UART/SWD.
+ * Updated throughout `main()`; `Error_Handler()` blinks it out on PB3.
+ */
+volatile uint32_t g_boot_stage = 0;
+volatile uint8_t g_iwdg_started = 0U;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -111,38 +115,88 @@ int main(void)
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
+  g_boot_stage = 1;
 
   /* USER CODE BEGIN Init */
 
   /* USER CODE END Init */
 
   /* Configure the system clock */
+  g_boot_stage = 2;
   SystemClock_Config();
+  g_boot_stage = 3;
 
   /* USER CODE BEGIN SysInit */
 
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
+  g_boot_stage = 10;
   MX_GPIO_Init();
+  g_boot_stage = 11;
   MX_DMA_Init();
+  g_boot_stage = 12;
   MX_USART2_UART_Init();
+  g_boot_stage = 13;
+
+  /* Early UART banner to confirm we reached peripheral init (before RTOS). */
+  (void)HAL_UART_Transmit(&huart2, (uint8_t*)"BOOT: after USART2 init\r\n", (uint16_t)(sizeof("BOOT: after USART2 init\r\n") - 1U), 200);
+  g_boot_stage = 14;
+
+  g_boot_stage = 20;
   MX_AES_Init();
+  g_boot_stage = 21;
   MX_RTC_Init();
+  g_boot_stage = 22;
+
+  (void)HAL_UART_Transmit(&huart2, (uint8_t*)"BOOT: after RTC init\r\n", (uint16_t)(sizeof("BOOT: after RTC init\r\n") - 1U), 200);
+  g_boot_stage = 23;
+  g_boot_stage = 30;
   MX_CRC_Init();
+  g_boot_stage = 31;
   MX_IWDG_Init();
-  MX_RNG_Init();
+  g_boot_stage = 32;
+
+  (void)HAL_UART_Transmit(&huart2, (uint8_t*)"BOOT: IWDG started\r\n", (uint16_t)(sizeof("BOOT: IWDG started\r\n") - 1U), 200);
+  g_boot_stage = 33;
+
+  g_iwdg_started = 1U;
+
+  /* Refresh IWDG during long init phases before RTOS tasks start refreshing it. */
+  (void)HAL_IWDG_Refresh(&hiwdg);
+
+  /* RNG init is optional for LoRa bring-up. It can fail depending on clock-tree
+   * configuration (PLL off in debug mode). Skip it for now.
+   */
+  g_boot_stage = 40;
+  (void)HAL_UART_Transmit(&huart2, (uint8_t*)"BOOT: RNG skipped\r\n", (uint16_t)(sizeof("BOOT: RNG skipped\r\n") - 1U), 200);
+  g_boot_stage = 41;
+
   MX_TIM2_Init();
+  g_boot_stage = 42;
+  (void)HAL_UART_Transmit(&huart2, (uint8_t*)"BOOT: after TIM2 init\r\n", (uint16_t)(sizeof("BOOT: after TIM2 init\r\n") - 1U), 200);
+  (void)HAL_IWDG_Refresh(&hiwdg);
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
 
   /* Init scheduler */
+  g_boot_stage = 50;
   osKernelInitialize();  /* Call init function for freertos objects (in cmsis_os2.c) */
+  g_boot_stage = 51;
+  (void)HAL_UART_Transmit(&huart2, (uint8_t*)"BOOT: kernel init ok\r\n", (uint16_t)(sizeof("BOOT: kernel init ok\r\n") - 1U), 200);
+  (void)HAL_IWDG_Refresh(&hiwdg);
+
   MX_FREERTOS_Init();
+  g_boot_stage = 52;
+  (void)HAL_UART_Transmit(&huart2, (uint8_t*)"BOOT: RTOS objects ok\r\n", (uint16_t)(sizeof("BOOT: RTOS objects ok\r\n") - 1U), 200);
+  (void)HAL_IWDG_Refresh(&hiwdg);
 
   /* Start scheduler */
+  (void)HAL_UART_Transmit(&huart2, (uint8_t*)"BOOT: starting RTOS\r\n", (uint16_t)(sizeof("BOOT: starting RTOS\r\n") - 1U), 200);
+  g_boot_stage = 60;
   osKernelStart();
+  g_boot_stage = 61;
 
   /* We should never get here as control is now taken by the scheduler */
 
@@ -185,7 +239,18 @@ void SystemClock_Config(void)
 
   /** Initializes the CPU, AHB and APB buses clocks
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_HSE;
+  /* This project was generated with HSE as PLL source (expects 32 MHz HSE).
+   * Many E77 module carriers do not populate an HSE crystal/TCXO on the MCU pins.
+   * To make bring-up robust:
+   *  1) Try HSE+PLL (48 MHz)
+   *  2) If HSE fails, fall back to plain HSI (16 MHz) without PLL.
+   *
+   * The HSI fallback is intentionally simple because it should always produce
+   * a stable UART baud rate for debugging.
+   */
+  uint8_t use_pll = 1U;
+
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI | RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.LSIDiv = RCC_LSI_DIV1;
   RCC_OscInitStruct.HSEDiv = RCC_HSE_DIV1;
@@ -197,9 +262,24 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
   RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
   RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
+
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
-    Error_Handler();
+    /* Fallback: HSI16, no PLL */
+    use_pll = 0U;
+
+    RCC_OscInitStruct = (RCC_OscInitTypeDef){0};
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI | RCC_OSCILLATORTYPE_HSI;
+    RCC_OscInitStruct.LSIState = RCC_LSI_ON;
+    RCC_OscInitStruct.LSIDiv = RCC_LSI_DIV1;
+    RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+    RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_OFF;
+
+    if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+    {
+      Error_Handler();
+    }
   }
 
   /** Configure the SYSCLKSource, HCLK, PCLK1 and PCLK2 clocks dividers
@@ -207,13 +287,13 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK3|RCC_CLOCKTYPE_HCLK
                               |RCC_CLOCKTYPE_SYSCLK|RCC_CLOCKTYPE_PCLK1
                               |RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.SYSCLKSource = (use_pll != 0U) ? RCC_SYSCLKSOURCE_PLLCLK : RCC_SYSCLKSOURCE_HSI;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
   RCC_ClkInitStruct.AHBCLK3Divider = RCC_SYSCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, (use_pll != 0U) ? FLASH_LATENCY_2 : FLASH_LATENCY_0) != HAL_OK)
   {
     Error_Handler();
   }
@@ -254,8 +334,32 @@ void Error_Handler(void)
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
+
+  /* Try to indicate a fatal error even if UART/RTOS is dead.
+   * PB3 is used as a debug LED in this project.
+   */
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+  GPIOB->MODER = (GPIOB->MODER & ~(3U << (3U * 2U))) | (1U << (3U * 2U)); /* PB3 output */
+
   while (1)
   {
+    /* Blink out the last boot stage in decimal pulses.
+     * Pattern: N short blinks then a pause.
+     */
+    uint32_t n = g_boot_stage;
+    if (n == 0U) { n = 99U; }
+
+    for (uint32_t k = 0; k < n; k++)
+    {
+      GPIOB->BSRR = (1U << 3);
+      for (volatile uint32_t i = 0; i < 40000U; i++) { __NOP(); }
+      GPIOB->BSRR = (1U << (3 + 16));
+      for (volatile uint32_t i = 0; i < 70000U; i++) { __NOP(); }
+      if (g_iwdg_started != 0U) { (void)HAL_IWDG_Refresh(&hiwdg); }
+    }
+
+    for (volatile uint32_t i = 0; i < 600000U; i++) { __NOP(); }
+    if (g_iwdg_started != 0U) { (void)HAL_IWDG_Refresh(&hiwdg); }
   }
   /* USER CODE END Error_Handler_Debug */
 }

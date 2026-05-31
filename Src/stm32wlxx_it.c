@@ -88,12 +88,16 @@ void NMI_Handler(void)
 void HardFault_Handler(void)
 {
   /* USER CODE BEGIN HardFault_IRQn 0 */
+  __disable_irq();
 
+  /* Blink PB3 fast to indicate a fault. */
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+  GPIOB->MODER = (GPIOB->MODER & ~(3U << (3U * 2U))) | (1U << (3U * 2U)); /* PB3 output */
   /* USER CODE END HardFault_IRQn 0 */
   while (1)
   {
-    /* USER CODE BEGIN W1_HardFault_IRQn 0 */
-    /* USER CODE END W1_HardFault_IRQn 0 */
+    GPIOB->ODR ^= (1U << 3);
+    for (volatile uint32_t i = 0; i < 60000U; i++) { __NOP(); }
   }
 }
 

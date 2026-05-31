@@ -24,6 +24,7 @@
 #include "sys_app.h"
 #include "stm32_systime.h"
 #include "timer_if.h"
+#include "stm32_timer.h"
 #include "utilities_def.h"
 
 /* USER CODE BEGIN Includes */
@@ -66,10 +67,20 @@ static uint8_t SYS_TimerInitialisedFlag = 0;
 void SystemApp_Init(void)
 {
   /* USER CODE BEGIN SystemApp_Init_1 */
-
+  if (SYS_TimerInitialisedFlag == 0U)
+  {
+    /* Initialize the timer server and its RTC-based low level driver.
+     * This also makes the HAL_GetTick/HAL_Delay overrides functional.
+     */
+    (void)UTIL_TIMER_Init();
+    SYS_TimerInitialisedFlag = 1U;
+  }
   /* USER CODE END SystemApp_Init_1 */
-
 }
+
+/* USER CODE BEGIN EF */
+
+/* USER CODE END EF */
 
 /* USER CODE BEGIN EF */
 
@@ -85,6 +96,11 @@ void SystemApp_Init(void)
 /* Set #if 0 if you want to keep the default HAL instead overcharge them*/
 /* USER CODE BEGIN Overload_HAL_weaks_1 */
 #if 1
+/* When the RTC-based timer server is not initialized yet, HAL timeouts must
+ * still work (HAL_RTC_Init, HAL_UART_Transmit, ...). We fall back to the
+ * default HAL tick counter (`uwTick`) until the timer server is ready.
+ */
+extern __IO uint32_t uwTick;
 /* USER CODE END Overload_HAL_weaks_1 */
 
 /* USER CODE BEGIN Overload_HAL_weaks_1a */
@@ -96,31 +112,18 @@ void SystemApp_Init(void)
   */
 uint32_t HAL_GetTick(void)
 {
-  uint32_t ret = 0;
   /* TIMER_IF can be based on other counter the SysTick e.g. RTC */
   /* USER CODE BEGIN HAL_GetTick_1 */
 
   /* USER CODE END HAL_GetTick_1 */
-  if (SYS_TimerInitialisedFlag == 0)
-  {
-    /* TIMER_IF_GetTimerValue should be used only once UTIL_TIMER_Init() is initialized */
-    /* If HAL_Delay or a TIMEOUT countdown is necessary during initialization phase */
-    /* please use temporarily another timebase source (SysTick or TIMx), which implies also */
-    /* to rework the above function HAL_InitTick() and to call HAL_IncTick() on the timebase IRQ */
-    /* Note: when TIMER_IF is based on RTC, stm32wlxx_hal_rtc.c calls this function before TimeServer is functional */
-    /* RTC TIMEOUT will not expire, i.e. if RTC has an hw problem it will keep looping in the RTC_Init function */
-    /* USER CODE BEGIN HAL_GetTick_EarlyCall */
 
-    /* USER CODE END HAL_GetTick_EarlyCall */
-  }
-  else
+  if (SYS_TimerInitialisedFlag == 0U)
   {
-    ret = TIMER_IF_GetTimerValue();
+    /* Early init fallback: keep HAL timeouts functional */
+    return uwTick;
   }
-  /* USER CODE BEGIN HAL_GetTick_2 */
 
-  /* USER CODE END HAL_GetTick_2 */
-  return ret;
+  return TIMER_IF_GetTimerValue();
 }
 
 /**
@@ -132,6 +135,18 @@ void HAL_Delay(__IO uint32_t Delay)
   /* USER CODE BEGIN HAL_Delay_1 */
 
   /* USER CODE END HAL_Delay_1 */
+
+  if (SYS_TimerInitialisedFlag == 0U)
+  {
+    /* Early init fallback: delay based on uwTick */
+    uint32_t start = HAL_GetTick();
+    while ((HAL_GetTick() - start) < Delay)
+    {
+      __NOP();
+    }
+    return;
+  }
+
   TIMER_IF_DelayMs(Delay);
   /* USER CODE BEGIN HAL_Delay_2 */
 
