@@ -29,10 +29,11 @@
 #include "radio.h"
 #include "usart.h"
 #include "iwdg.h"
+#include "lora_test.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -84,6 +85,14 @@ const osThreadAttr_t UARTTask_attributes = {
 };
 /* Definitions for radioEventQueue */
 osMessageQueueId_t radioEventQueueHandle;
+
+/* LoRa test event queue (RX/TX notifications from radio callbacks) */
+osMessageQueueId_t loraEvtQueueHandle;
+const osMessageQueueAttr_t loraEvtQueue_attributes = { .name = "loraEvtQueue" };
+
+static volatile uint8_t g_beacon_enabled = 1U;
+static volatile uint8_t g_send_ping = 0U;
+static volatile uint8_t g_rx_only_mode = 0U;
 const osMessageQueueAttr_t radioEventQueue_attributes = {
   .name = "radioEventQueue"
 };
@@ -147,6 +156,9 @@ void MX_FREERTOS_Init(void) {
   /* creation of radioEventQueue */
   radioEventQueueHandle = osMessageQueueNew (8, sizeof(uint32_t), &radioEventQueue_attributes);
 
+  /* LoRa RX/TX event queue */
+  loraEvtQueueHandle = osMessageQueueNew(8, sizeof(lora_evt_t), &loraEvtQueue_attributes);
+
   /* creation of txPacketQueue */
   txPacketQueueHandle = osMessageQueueNew (4, sizeof(uint32_t), &txPacketQueue_attributes);
 
@@ -191,6 +203,8 @@ void StartDefaultTask(void *argument)
 {
   /* init code for SubGHz_Phy */
   MX_SubGHz_Phy_Init();
+  (void)HAL_UART_Transmit(&huart2, (uint8_t*)"Radio init OK - in RX\r\n",
+                           (uint16_t)(sizeof("Radio init OK - in RX\r\n") - 1U), 200);
   osEventFlagsSet(appEventFlagsHandle, APP_EVT_RADIO_READY);
 
   /* USER CODE BEGIN StartDefaultTask */
@@ -214,20 +228,77 @@ void StartDefaultTask(void *argument)
 void StartRadioTask(void *argument)
 {
   /* USER CODE BEGIN StartRadioTask */
-  /* Wait until radio is initialized in default task */
   (void)osEventFlagsWait(appEventFlagsHandle, APP_EVT_RADIO_READY, osFlagsWaitAny, osWaitForever);
 
-  /* Periodic TX beacon to validate the link (disable once mesh is in place) */
+  /* Start in continuous RX. */
+  Radio.Rx(0);
+
   for(;;)
   {
-    uint8_t msg[32];
-    int len = snprintf((char*)msg, sizeof(msg), "BEACON %lu", (unsigned long)g_beacon_counter++);
-    if (len > 0)
+    if (g_rx_only_mode != 0U)
     {
-      (void)Radio.Send(msg, (uint8_t)len);
+      /* Re-arm RX each cycle so we stay in continuous receive. */
+      Radio.Rx(0);
+      (void)HAL_IWDG_Refresh(&hiwdg);
+      osDelay(2000);
     }
+    else
+    {
+      uint8_t do_tx = 0U;
+      uint8_t tx_buf[32];
+      uint8_t tx_len = 0U;
 
-    osDelay(2000);
+      if (g_send_ping != 0U)
+      {
+        g_send_ping = 0U;
+        const uint8_t ping[] = "PING";
+        tx_len = (uint8_t)(sizeof(ping) - 1U);
+        memcpy(tx_buf, ping, tx_len);
+        do_tx = 1U;
+      }
+      else if (g_beacon_enabled != 0U)
+      {
+        int len = snprintf((char*)tx_buf, sizeof(tx_buf), "BEACON %lu",
+                           (unsigned long)g_beacon_counter++);
+        if (len > 0)
+        {
+          tx_len = (uint8_t)len;
+          do_tx = 1U;
+        }
+      }
+
+      if (do_tx != 0U)
+      {
+        /*
+         * Put the radio in standby first to abort any ongoing RX.  Then yield
+         * for one scheduler tick so any ISR that was triggered by a pending
+         * radio IRQ (e.g. CRC error from noise) gets to run and clears the
+         * radio IRQ status register.  Without this drain step, the ISR could
+         * fire inside Radio.Send() and overwrite the DIO IRQ mask back to RX
+         * mode, causing TX_DONE to never trigger SUBGHZ_Radio_IRQn.
+         */
+        Radio.Standby();
+        osDelay(1);
+
+        (void)Radio.Send(tx_buf, tx_len);
+
+        /* Wait long enough for the packet to finish (SF7/BW125 << 200 ms). */
+        osDelay(200);
+
+        /* Re-arm RX for the remainder of the 2-second window. */
+        Radio.Rx(0);
+
+        (void)HAL_IWDG_Refresh(&hiwdg);
+        osDelay(1800);
+      }
+      else
+      {
+        /* Nothing to transmit — stay in RX. */
+        Radio.Rx(0);
+        (void)HAL_IWDG_Refresh(&hiwdg);
+        osDelay(2000);
+      }
+    }
   }
   /* USER CODE END StartRadioTask */
 }
@@ -264,26 +335,103 @@ void StartUARTTask(void *argument)
 
   /* Print immediately (don’t depend on radio init). */
   (void)HAL_UART_Transmit(&huart2, (uint8_t*)"UART task start\r\n", (uint16_t)(sizeof("UART task start\r\n") - 1U), 100);
-  (void)HAL_UART_Transmit(&huart2, (uint8_t*)"Type B to jump bootloader\r\n", (uint16_t)(sizeof("Type B to jump bootloader\r\n") - 1U), 100);
+  (void)HAL_UART_Transmit(&huart2, (uint8_t*)"Commands: B=boot  t=toggle beacon  p=ping  r=toggle RX-only\r\n",
+                          (uint16_t)(sizeof("Commands: B=boot  t=toggle beacon  p=ping  r=toggle RX-only\r\n") - 1U), 100);
 
   uint8_t b;
+  lora_evt_t evt;
+
   for(;;)
   {
-    if (HAL_UART_Receive(&huart2, &b, 1, 100) == HAL_OK)
+    /* Drain LoRa event queue and print */
+    while (osMessageQueueGet(loraEvtQueueHandle, &evt, NULL, 0) == osOK)
+    {
+      switch (evt.type)
+      {
+        case LORA_EVT_TX_DONE:
+          (void)HAL_UART_Transmit(&huart2, (uint8_t*)"LORA: TX_DONE\r\n", (uint16_t)(sizeof("LORA: TX_DONE\r\n") - 1U), 100);
+          break;
+        case LORA_EVT_TX_TIMEOUT:
+          (void)HAL_UART_Transmit(&huart2, (uint8_t*)"LORA: TX_TIMEOUT\r\n", (uint16_t)(sizeof("LORA: TX_TIMEOUT\r\n") - 1U), 100);
+          break;
+        case LORA_EVT_RX_TIMEOUT:
+          (void)HAL_UART_Transmit(&huart2, (uint8_t*)"LORA: RX_TIMEOUT\r\n", (uint16_t)(sizeof("LORA: RX_TIMEOUT\r\n") - 1U), 100);
+          break;
+        case LORA_EVT_RX_ERROR:
+          (void)HAL_UART_Transmit(&huart2, (uint8_t*)"LORA: RX_ERROR\r\n", (uint16_t)(sizeof("LORA: RX_ERROR\r\n") - 1U), 100);
+          break;
+        case LORA_EVT_RX_DONE:
+        {
+          char header[64];
+          int n = snprintf(header, sizeof(header), "LORA: RX %uB RSSI=%d SNR=%d\r\n",
+                           (unsigned)evt.size, (int)evt.rssi, (int)evt.snr);
+          if (n > 0)
+          {
+            (void)HAL_UART_Transmit(&huart2, (uint8_t*)header, (uint16_t)n, 200);
+          }
+
+          /* Print payload as hex */
+          for (uint16_t i = 0; i < evt.size; i++)
+          {
+            char hex[4];
+            int hn = snprintf(hex, sizeof(hex), "%02X ", evt.payload[i]);
+            if (hn > 0)
+            {
+              (void)HAL_UART_Transmit(&huart2, (uint8_t*)hex, (uint16_t)hn, 200);
+            }
+          }
+          (void)HAL_UART_Transmit(&huart2, (uint8_t*)"\r\n", 2, 200);
+          break;
+        }
+        default:
+          break;
+      }
+    }
+
+    /* Handle UART commands */
+    if (HAL_UART_Receive(&huart2, &b, 1, 10) == HAL_OK)
     {
       if (b == 'B')
       {
-        (void)HAL_UART_Transmit(&huart2, (uint8_t*)"Jumping to bootloader...\r\n", (uint16_t)(sizeof("Jumping to bootloader...\r\n") - 1U), 100);
+        (void)HAL_UART_Transmit(&huart2, (uint8_t*)"Jumping to bootloader...\r\n",
+                                (uint16_t)(sizeof("Jumping to bootloader...\r\n") - 1U), 100);
         osDelay(50);
         JumpToBootloader();
       }
-
-      /* simple echo */
-      (void)HAL_UART_Transmit(&huart2, &b, 1, 100);
+      else if (b == 't')
+      {
+        g_beacon_enabled = (g_beacon_enabled == 0U) ? 1U : 0U;
+        (void)HAL_UART_Transmit(&huart2, (uint8_t*)(g_beacon_enabled ? "Beacon ON\r\n" : "Beacon OFF\r\n"),
+                                (uint16_t)(g_beacon_enabled ? (sizeof("Beacon ON\r\n") - 1U) : (sizeof("Beacon OFF\r\n") - 1U)), 100);
+      }
+      else if (b == 'p')
+      {
+        g_send_ping = 1U;
+        (void)HAL_UART_Transmit(&huart2, (uint8_t*)"PING queued\r\n", (uint16_t)(sizeof("PING queued\r\n") - 1U), 100);
+      }
+      else if (b == 'r')
+      {
+        g_rx_only_mode ^= 1U;
+        if (g_rx_only_mode != 0U)
+        {
+          g_beacon_enabled = 0U;
+          (void)HAL_UART_Transmit(&huart2, (uint8_t*)"RX-only ON (beacon off)\r\n",
+                                  (uint16_t)(sizeof("RX-only ON (beacon off)\r\n") - 1U), 100);
+        }
+        else
+        {
+          (void)HAL_UART_Transmit(&huart2, (uint8_t*)"RX-only OFF\r\n",
+                                  (uint16_t)(sizeof("RX-only OFF\r\n") - 1U), 100);
+        }
+      }
+      else
+      {
+        (void)HAL_UART_Transmit(&huart2, &b, 1, 100);
+      }
     }
 
     (void)HAL_IWDG_Refresh(&hiwdg);
-    osDelay(1);
+    osDelay(5);
   }
   /* USER CODE END StartUARTTask */
 }

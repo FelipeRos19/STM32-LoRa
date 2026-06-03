@@ -61,23 +61,31 @@ extern "C" {
 /* USER CODE BEGIN Exported Parameters */
 
 /* USER CODE END Exported Parameters */
-/* Indicates the type of PA path the board/module actually routes to the antenna.
- * EBYTE E77-xxxM22S (22 dBm) modules typically route the High Power PA (RFO_HP)
- * to the RF matching network.
+/* PA path selection.
+ * HP PA requires an external VDDPA supply. If VDDPA is not connected on the
+ * carrier board, the radio returns CMD_EXECUTE_FAILURE on every SET_TX.
+ * Use LP PA (max 15 dBm) which runs off the internal VDDRF supply.
+ * Change to RBI_CONF_RFO_HP once VDDPA is confirmed connected.
  */
-#define RBI_CONF_RFO                        RBI_CONF_RFO_HP
+#define RBI_CONF_RFO                        RBI_CONF_RFO_LP
 
 /* Indicates whether or not TCXO is supported by the board
- * 0: TCXO not supported
- * 1: TCXO supported
+ * 0: TCXO not supported (passive crystal oscillator)
+ * 1: TCXO supported — the TCXO is powered by the radio's VDDTCXO output
+ *
+ * E77-900M22S uses a TCXO controlled by the radio. Without this set to 1,
+ * SUBGRF_SetTcxoMode() is never called, the TCXO never powers up, HSERDY
+ * stays 0, and every SET_TX / SET_RX returns CMD_EXECUTE_FAILURE.
  */
-#define IS_TCXO_SUPPORTED                   0U
+#define IS_TCXO_SUPPORTED                   1U
 
 /* Indicates whether or not DCDC is supported by the board
- * 0: DCDC not supported
- * 1: DCDC supported
+ * 0: DCDC not supported — use internal LDO (safe default)
+ * 1: DCDC supported — only enable if DC-DC converter is wired on the carrier
+ * E77 SET_RX/SET_TX both returned CMD_EXECUTE_FAILURE with DCDC=1,
+ * indicating the carrier does not have the DC-DC converter connected.
  */
-#define IS_DCDC_SUPPORTED                   1U
+#define IS_DCDC_SUPPORTED                   0U
 
 /* USER CODE BEGIN Exported Parameters_2 */
 
