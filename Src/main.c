@@ -265,7 +265,7 @@ void SystemClock_Config(void)
 
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
-    /* Fallback: HSI16, no PLL */
+    /* Fallback: HSI16 for CPU clock, no PLL. */
     use_pll = 0U;
 
     RCC_OscInitStruct = (RCC_OscInitTypeDef){0};
@@ -280,6 +280,10 @@ void SystemClock_Config(void)
     {
       Error_Handler();
     }
+    /* HSE is left disabled here.  On E77-900M22S the TCXO is powered by the
+     * radio's VDDTCXO output (IS_TCXO_SUPPORTED=1); it becomes usable only
+     * after SUBGRF_SetTcxoMode() runs inside SubghzApp_Init.  The CPU runs
+     * on HSI16; the radio manages HSE for its own RF use. */
   }
 
   /** Configure the SYSCLKSource, HCLK, PCLK1 and PCLK2 clocks dividers

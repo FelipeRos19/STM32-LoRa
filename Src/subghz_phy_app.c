@@ -23,11 +23,13 @@
 #include "sys_app.h"
 #include "subghz_phy_app.h"
 #include "radio.h"
-#include "cmsis_os.h"
+#include "cmsis_os2.h"
 #include "stm32wlxx_hal.h"
+#include "lora_test.h"
+#include <string.h>
 
 /* USER CODE BEGIN Includes */
-
+#include "usart.h"
 /* USER CODE END Includes */
 
 /* External variables ---------------------------------------------------------*/
@@ -170,45 +172,55 @@ static void OnTxDone(void)
 {
   /* USER CODE BEGIN OnTxDone */
   HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_3);
-  /* Return to RX after TX */
-  Radio.Rx(0);
+
+  lora_evt_t evt = {0};
+  evt.type = LORA_EVT_TX_DONE;
+  (void)osMessageQueuePut(loraEvtQueueHandle, &evt, 0, 0);
   /* USER CODE END OnTxDone */
 }
 
 static void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t LoraSnr_FskCfo)
 {
   /* USER CODE BEGIN OnRxDone */
-  (void)rssi;
-  (void)LoraSnr_FskCfo;
-
-  /* Visual RX indicator */
   HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_3);
 
-  /* For now: just stay in RX. Your mesh layer should copy `payload` and enqueue it. */
-  (void)payload;
-  (void)size;
-  Radio.Rx(0);
+  lora_evt_t evt = {0};
+  evt.type = LORA_EVT_RX_DONE;
+  evt.rssi = rssi;
+  evt.snr = LoraSnr_FskCfo;
+  evt.size = (size > sizeof(evt.payload)) ? (uint16_t)sizeof(evt.payload) : size;
+  if (evt.size > 0U)
+  {
+    memcpy(evt.payload, payload, evt.size);
+  }
+  (void)osMessageQueuePut(loraEvtQueueHandle, &evt, 0, 0);
   /* USER CODE END OnRxDone */
 }
 
 static void OnTxTimeout(void)
 {
   /* USER CODE BEGIN OnTxTimeout */
-  Radio.Rx(0);
+  lora_evt_t evt = {0};
+  evt.type = LORA_EVT_TX_TIMEOUT;
+  (void)osMessageQueuePut(loraEvtQueueHandle, &evt, 0, 0);
   /* USER CODE END OnTxTimeout */
 }
 
 static void OnRxTimeout(void)
 {
   /* USER CODE BEGIN OnRxTimeout */
-  Radio.Rx(0);
+  lora_evt_t evt = {0};
+  evt.type = LORA_EVT_RX_TIMEOUT;
+  (void)osMessageQueuePut(loraEvtQueueHandle, &evt, 0, 0);
   /* USER CODE END OnRxTimeout */
 }
 
 static void OnRxError(void)
 {
   /* USER CODE BEGIN OnRxError */
-  Radio.Rx(0);
+  lora_evt_t evt = {0};
+  evt.type = LORA_EVT_RX_ERROR;
+  (void)osMessageQueuePut(loraEvtQueueHandle, &evt, 0, 0);
   /* USER CODE END OnRxError */
 }
 
