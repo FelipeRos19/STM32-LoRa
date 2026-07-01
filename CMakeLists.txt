@@ -45,6 +45,8 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
+    Src/crypto.c
+    Src/crypto_test.c   # TEMP: crypto bring-up test, remove later
 )
 
 # Add include paths

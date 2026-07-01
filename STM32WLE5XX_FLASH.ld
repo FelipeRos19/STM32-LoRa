@@ -9,9 +9,17 @@ ENTRY(Reset_Handler)
 
 
 /* Memories definition */
+/*
+ * The last three 2KB pages (0x0803E800..0x0803FFFF) are reserved for the
+ * crypto module's persistent store (Src/crypto.c), so they are kept out of ROM
+ * and the NVM region below makes the linker fail if code ever grows into them:
+ *   pages 125 + 126 -> boot_id ping-pong log (nonce anti-reuse)
+ *   page  127       -> app-provisioned PSK record
+ */
 MEMORY
 {
-  ROM    (rx)    : ORIGIN = 0x08000000, LENGTH = 256K
+  ROM    (rx)    : ORIGIN = 0x08000000, LENGTH = 250K   /* 256K - 6K reserved for NVM */
+  NVM    (r)     : ORIGIN = 0x0803E800, LENGTH = 6K     /* crypto: boot_id (x2) + PSK  */
   RAM1   (xrw)   : ORIGIN = 0x20000000, LENGTH = 32K    /* Non-backup SRAM1 */
   RAM2   (xrw)   : ORIGIN = 0x20008000, LENGTH = 32K    /* Backup SRAM2 */
 }

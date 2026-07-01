@@ -32,7 +32,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "crypto_test.h"   /* TEMP: crypto bring-up test, remove later */
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -194,6 +194,10 @@ void StartDefaultTask(void *argument)
   osEventFlagsSet(appEventFlagsHandle, APP_EVT_RADIO_READY);
 
   /* USER CODE BEGIN StartDefaultTask */
+  /* --- TEMP: crypto bring-up test (remove with crypto_test.c/.h) --- */
+  (void)crypto_test_run();
+  /* --- end TEMP --- */
+
   /* Infinite loop */
   for(;;)
   {
