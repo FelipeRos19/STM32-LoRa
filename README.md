@@ -37,6 +37,7 @@ O firmware em execução ocupa a USART2, a mesma porta usada pelo bootloader da 
 O mesmo firmware atende os dois papéis do TCC. O papel é definido pelo quadro `CONFIG` que o aplicativo envia ao conectar.
 
 - **Protocolo:** `docs/protocolo_serial.md` (quadros, códigos e comportamento).
+- **Manuais dos aplicativos Android:** `docs/manual_app_comum.md` (USB, enquadramento e código Kotlin de referência), `docs/manual_app_beacon.md` e `docs/manual_app_sniffer.md`.
 - **Código da aplicação:** `App/`, fora dos diretórios gerados pelo CubeMX:
   - `serial_link`: UART por DMA e enquadramento;
   - `node_app`: máquina de estados;

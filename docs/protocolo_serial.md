@@ -6,6 +6,7 @@ As constantes ficam em `App/Inc/proto_defs.h` e `App/Inc/proto_msgs.h`. Mantenha
 - **Enlace:** UART 115200 bps, 8N1, sem controle de fluxo (CH340X da placa E77-900MBL-01).
 - **Inteiros:** todos em **big-endian**. Os sinais (`i8`, `i16`, `i32`) estão em complemento de dois.
 - **Implementação de referência:** `tools/node_cli.py`, em Python, emula o aplicativo.
+- **Guias de implementação dos aplicativos:** [camada comum](manual_app_comum.md), [Beacon](manual_app_beacon.md) e [Sniffer](manual_app_sniffer.md).
 
 ## 1. Enquadramento
 
