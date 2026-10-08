@@ -7,3 +7,6 @@ __pycache__/
 
 # Local Python virtualenv (tools/node_cli.py)
 .venv/
+
+# Bench logs
+*.log
