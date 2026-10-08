@@ -18,22 +18,21 @@
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
-#include <stdio.h>
 #include "FreeRTOS.h"
 #include "task.h"
 #include "main.h"
 #include "cmsis_os2.h"
-#include "FreeRTOS.h"
 
 #include "app_subghz_phy.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include <stdio.h>
+#include <string.h>
 #include "radio.h"
 #include "usart.h"
 #include "iwdg.h"
 #include "lora_test.h"
-
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
-#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,7 +42,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define APP_EVT_RADIO_READY   (1U << 0)
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -53,7 +52,19 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
+/* LoRa test event queue (RX/TX notifications from radio callbacks) */
+osMessageQueueId_t loraEvtQueueHandle;
+const osMessageQueueAttr_t loraEvtQueue_attributes = { .name = "loraEvtQueue" };
 
+/* Signals that the radio has been initialised by the default task */
+osEventFlagsId_t appEventFlagsHandle;
+
+static volatile uint8_t g_beacon_enabled = 1U;
+static volatile uint8_t g_send_ping = 0U;
+static volatile uint8_t g_rx_only_mode = 0U;
+
+/* Simple TX test payload counter */
+static uint32_t g_beacon_counter = 0;
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
@@ -85,14 +96,6 @@ const osThreadAttr_t UARTTask_attributes = {
 };
 /* Definitions for radioEventQueue */
 osMessageQueueId_t radioEventQueueHandle;
-
-/* LoRa test event queue (RX/TX notifications from radio callbacks) */
-osMessageQueueId_t loraEvtQueueHandle;
-const osMessageQueueAttr_t loraEvtQueue_attributes = { .name = "loraEvtQueue" };
-
-static volatile uint8_t g_beacon_enabled = 1U;
-static volatile uint8_t g_send_ping = 0U;
-static volatile uint8_t g_rx_only_mode = 0U;
 const osMessageQueueAttr_t radioEventQueue_attributes = {
   .name = "radioEventQueue"
 };
@@ -103,14 +106,6 @@ const osMessageQueueAttr_t txPacketQueue_attributes = {
 };
 /* Definitions for uartRxQueue */
 osMessageQueueId_t uartRxQueueHandle;
-
-/* Definitions for appEventFlags */
-osEventFlagsId_t appEventFlagsHandle;
-
-#define APP_EVT_RADIO_READY   (1U << 0)
-
-/* Simple TX test payload counter */
-static uint32_t g_beacon_counter = 0;
 const osMessageQueueAttr_t uartRxQueue_attributes = {
   .name = "uartRxQueue"
 };
@@ -150,14 +145,8 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE END RTOS_TIMERS */
 
   /* Create the queue(s) */
-
-  /* Create event flags */
-  appEventFlagsHandle = osEventFlagsNew(NULL);
   /* creation of radioEventQueue */
   radioEventQueueHandle = osMessageQueueNew (8, sizeof(uint32_t), &radioEventQueue_attributes);
-
-  /* LoRa RX/TX event queue */
-  loraEvtQueueHandle = osMessageQueueNew(8, sizeof(lora_evt_t), &loraEvtQueue_attributes);
 
   /* creation of txPacketQueue */
   txPacketQueueHandle = osMessageQueueNew (4, sizeof(uint32_t), &txPacketQueue_attributes);
@@ -167,6 +156,7 @@ void MX_FREERTOS_Init(void) {
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
+  loraEvtQueueHandle = osMessageQueueNew(8, sizeof(lora_evt_t), &loraEvtQueue_attributes);
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
@@ -188,6 +178,7 @@ void MX_FREERTOS_Init(void) {
 
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
+  appEventFlagsHandle = osEventFlagsNew(NULL);
   /* USER CODE END RTOS_EVENTS */
 
 }
@@ -203,11 +194,11 @@ void StartDefaultTask(void *argument)
 {
   /* init code for SubGHz_Phy */
   MX_SubGHz_Phy_Init();
+  /* USER CODE BEGIN StartDefaultTask */
   (void)HAL_UART_Transmit(&huart2, (uint8_t*)"Radio init OK - in RX\r\n",
                            (uint16_t)(sizeof("Radio init OK - in RX\r\n") - 1U), 200);
   osEventFlagsSet(appEventFlagsHandle, APP_EVT_RADIO_READY);
 
-  /* USER CODE BEGIN StartDefaultTask */
   /* Infinite loop */
   for(;;)
   {

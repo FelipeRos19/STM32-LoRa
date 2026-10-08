@@ -61,29 +61,19 @@ extern "C" {
 /* USER CODE BEGIN Exported Parameters */
 
 /* USER CODE END Exported Parameters */
-/* PA path selection.
- * HP PA requires an external VDDPA supply. If VDDPA is not connected on the
- * carrier board, the radio returns CMD_EXECUTE_FAILURE on every SET_TX.
- * Use LP PA (max 15 dBm) which runs off the internal VDDRF supply.
- * Change to RBI_CONF_RFO_HP once VDDPA is confirmed connected.
+/* Indicates the type of switch between the ones proposed by CONFIG Constants
  */
-#define RBI_CONF_RFO                        RBI_CONF_RFO_LP
+#define RBI_CONF_RFO                        RBI_CONF_RFO_HP
 
 /* Indicates whether or not TCXO is supported by the board
- * 0: TCXO not supported (passive crystal oscillator)
- * 1: TCXO supported — the TCXO is powered by the radio's VDDTCXO output
- *
- * E77-900M22S uses a TCXO controlled by the radio. Without this set to 1,
- * SUBGRF_SetTcxoMode() is never called, the TCXO never powers up, HSERDY
- * stays 0, and every SET_TX / SET_RX returns CMD_EXECUTE_FAILURE.
+ * 0: TCXO not supported
+ * 1: TCXO supported
  */
-#define IS_TCXO_SUPPORTED                   1U
+#define IS_TCXO_SUPPORTED                   0U
 
 /* Indicates whether or not DCDC is supported by the board
- * 0: DCDC not supported — use internal LDO (safe default)
- * 1: DCDC supported — only enable if DC-DC converter is wired on the carrier
- * E77 SET_RX/SET_TX both returned CMD_EXECUTE_FAILURE with DCDC=1,
- * indicating the carrier does not have the DC-DC converter connected.
+ * 0: DCDC not supported
+ * 1: DCDC supported
  */
 #define IS_DCDC_SUPPORTED                   0U
 
@@ -99,9 +89,8 @@ extern "C" {
 
 #else
 /* USER CODE BEGIN Exported PinMapping */
-/* No external RF switch GPIOs are used on the E77 module carrier (single RF pin + matching).
- * If your specific carrier adds an external RF switch, define its GPIOs here and implement
- * RBI_ConfigRFSwitch() accordingly.
+/* E77-900M22S: 32 MHz crystal (no TCXO), HP PA only, internal RF switch driven
+ * by RF_TXEN (PA6) / RF_RXEN (PA7), see RBI_ConfigRFSwitch().
  */
 /* USER CODE END Exported PinMapping */
 #endif  /* USE_BSP_DRIVER  */

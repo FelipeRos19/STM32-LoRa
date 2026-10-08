@@ -67,22 +67,28 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
     # Add user defined libraries
 )
 
-# Generate .bin from .elf
+# Generate .bin/.hex from .elf and print section sizes
 add_custom_command(TARGET ${CMAKE_PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_OBJCOPY} -O binary
         $<TARGET_FILE:${CMAKE_PROJECT_NAME}>
         ${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}.bin
-    COMMENT "Generating binary: ${CMAKE_PROJECT_NAME}.bin"
+    COMMAND ${CMAKE_OBJCOPY} -O ihex
+        $<TARGET_FILE:${CMAKE_PROJECT_NAME}>
+        ${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}.hex
+    COMMAND ${CMAKE_SIZE} $<TARGET_FILE:${CMAKE_PROJECT_NAME}>
+    COMMENT "Generating ${CMAKE_PROJECT_NAME}.bin and ${CMAKE_PROJECT_NAME}.hex"
 )
 
 # Flash target via UART using STM32CubeProgrammer
 #
 # This flashes via a small helper script so we can:
-#  - interactively ask which serial port to use
-#  - kill processes that currently hold the serial device(s)
-set(FLASH_PORT "/dev/ttyUSB0" CACHE STRING "Default serial port for UART flashing (used as prompt default)")
+#  - optionally ask which serial port to use (FLASH_PROMPT, needs a real terminal)
+#  - kill processes that currently hold the serial port (always the selected
+#    port; every /dev/ttyUSB* and /dev/ttyACM* only with FLASH_KILL_ALL)
+set(FLASH_PORT "/dev/ttyUSB0" CACHE STRING "Serial port for UART flashing (prompt default when FLASH_PROMPT=ON)")
 set(FLASH_BAUD "115200"       CACHE STRING "Baud rate for UART flashing")
-set(FLASH_KILL_ALL ON          CACHE BOOL   "Kill processes using /dev/ttyUSB* and /dev/ttyACM* before flashing")
+set(FLASH_PROMPT ON            CACHE BOOL   "Ask for the serial port before flashing (turn OFF in IDEs without a terminal)")
+set(FLASH_KILL_ALL OFF         CACHE BOOL   "Kill processes using any /dev/ttyUSB* and /dev/ttyACM*, not only FLASH_PORT")
 
 add_custom_target(flash
     DEPENDS ${CMAKE_PROJECT_NAME}
@@ -91,6 +97,7 @@ add_custom_target(flash
         ${FLASH_BAUD}
         ${FLASH_PORT}
         ${FLASH_KILL_ALL}
+        ${FLASH_PROMPT}
     USES_TERMINAL
-    COMMENT "Flashing ${CMAKE_PROJECT_NAME}.bin to STM32 via UART (will prompt for port)"
+    COMMENT "Flashing ${CMAKE_PROJECT_NAME}.bin to STM32 via UART"
 )

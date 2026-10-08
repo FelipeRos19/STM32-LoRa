@@ -23,12 +23,11 @@
 #include "sys_app.h"
 #include "subghz_phy_app.h"
 #include "radio.h"
-#include "cmsis_os2.h"
-#include "stm32wlxx_hal.h"
-#include "lora_test.h"
-#include <string.h>
 
 /* USER CODE BEGIN Includes */
+#include <string.h>
+#include "cmsis_os2.h"
+#include "lora_test.h"
 #include "usart.h"
 /* USER CODE END Includes */
 
@@ -55,7 +54,8 @@
 #define LORA_SF                      7U      /* 6..12 */
 #define LORA_CR                      1U      /* 1=4/5, 2=4/6, 3=4/7, 4=4/8 */
 #define LORA_PREAMBLE_LEN            8U
-#define LORA_TX_POWER_DBM            14
+/* Bench value: keep low while boards are close together (HP PA allows up to 22). */
+#define LORA_TX_POWER_DBM            10
 #define LORA_TX_TIMEOUT_MS           3000UL
 
 /* USER CODE END PD */

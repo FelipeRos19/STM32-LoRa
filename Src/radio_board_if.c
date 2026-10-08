@@ -22,7 +22,7 @@
 #include "radio_board_if.h"
 
 /* USER CODE BEGIN Includes */
-
+#include "main.h"
 /* USER CODE END Includes */
 
 /* External variables ---------------------------------------------------------*/
@@ -74,12 +74,10 @@ int32_t RBI_Init(void)
   return BSP_RADIO_Init();
 #else
   /* 2/ Or implement RBI_Init here */
-  /* EBYTE E77 module carrier: no external RF switch/TCXO control required.
-   * Keep as no-op.
-   */
   int32_t retcode = 0;
   /* USER CODE BEGIN RBI_Init_2 */
-  /* no-op */
+  /* RF switch GPIOs (PA6/PA7) are configured by MX_GPIO_Init(); start with the path off. */
+  (void)RBI_ConfigRFSwitch(RBI_SWITCH_OFF);
   /* USER CODE END RBI_Init_2 */
   return retcode;
 #endif  /* USE_BSP_DRIVER  */
@@ -103,10 +101,9 @@ int32_t RBI_DeInit(void)
   return BSP_RADIO_DeInit();
 #else
   /* 2/ Or implement RBI_DeInit here */
-  /* No-op for this board. */
   int32_t retcode = 0;
   /* USER CODE BEGIN RBI_DeInit_2 */
-  /* no-op */
+  (void)RBI_ConfigRFSwitch(RBI_SWITCH_OFF);
   /* USER CODE END RBI_DeInit_2 */
   return retcode;
 #endif  /* USE_BSP_DRIVER */
@@ -131,13 +128,30 @@ int32_t RBI_ConfigRFSwitch(RBI_Switch_TypeDef Config)
   return BSP_RADIO_ConfigRFSwitch((BSP_RADIO_Switch_TypeDef) Config);
 #else
   /* 2/ Or implement RBI_ConfigRFSwitch here */
-  /* EBYTE E77 module carrier: RF path is fixed (single RF pin + matching network).
-   * No external RF switch GPIOs to toggle.
-   */
-  (void)Config;
   int32_t retcode = 0;
   /* USER CODE BEGIN RBI_ConfigRFSwitch_2 */
-  /* no-op */
+  /* E77-900M22S internal RF switch: PA6 = RF_TXEN, PA7 = RF_RXEN.
+   * TX: TXEN=1 RXEN=0, RX: TXEN=0 RXEN=1, OFF (radio idle only): both low.
+   * Both lines must never be high together, so the active line is always
+   * released before the other one is driven.
+   */
+  switch (Config)
+  {
+    case RBI_SWITCH_RX:
+      HAL_GPIO_WritePin(RF_TXEN_GPIO_Port, RF_TXEN_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(RF_RXEN_GPIO_Port, RF_RXEN_Pin, GPIO_PIN_SET);
+      break;
+    case RBI_SWITCH_RFO_LP:
+    case RBI_SWITCH_RFO_HP:
+      HAL_GPIO_WritePin(RF_RXEN_GPIO_Port, RF_RXEN_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(RF_TXEN_GPIO_Port, RF_TXEN_Pin, GPIO_PIN_SET);
+      break;
+    case RBI_SWITCH_OFF:
+    default:
+      HAL_GPIO_WritePin(RF_TXEN_GPIO_Port, RF_TXEN_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(RF_RXEN_GPIO_Port, RF_RXEN_Pin, GPIO_PIN_RESET);
+      break;
+  }
   /* USER CODE END RBI_ConfigRFSwitch_2 */
   return retcode;
 #endif  /* USE_BSP_DRIVER */

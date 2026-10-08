@@ -1,21 +1,25 @@
 #!/bin/sh
 # Interactive UART flash helper for STM32_Programmer_CLI.
-# - Prompts for the serial port (with a configurable default)
+# - Prompts for the serial port (with a configurable default), unless prompt=OFF
 # - Kills processes holding serial devices (optional)
 # - Flashes a provided .bin at 0x08000000
 
 set -eu
 
-BIN_PATH=${1:?"Usage: flash_uart.sh <bin_path> [baud] [default_port] [kill_all]"}
+BIN_PATH=${1:?"Usage: flash_uart.sh <bin_path> [baud] [default_port] [kill_all] [prompt]"}
 BAUD=${2:-115200}
 DEFAULT_PORT=${3:-/dev/ttyUSB0}
-KILL_ALL_RAW=${4:-ON}
+KILL_ALL_RAW=${4:-OFF}
+PROMPT_RAW=${5:-ON}
 
-# Normalize kill_all flag (accepts: 1/0, ON/OFF, TRUE/FALSE, YES/NO)
-case "$KILL_ALL_RAW" in
-  1|ON|on|YES|yes|TRUE|true) KILL_ALL=1 ;;
-  *) KILL_ALL=0 ;;
-esac
+# Normalize boolean flags (accepts: 1/0, ON/OFF, TRUE/FALSE, YES/NO)
+is_true() {
+  case "$1" in
+    1|ON|on|YES|yes|TRUE|true) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+if is_true "$KILL_ALL_RAW"; then KILL_ALL=1; else KILL_ALL=0; fi
 
 if [ ! -f "$BIN_PATH" ]; then
   echo "ERROR: Binary not found: $BIN_PATH" >&2
@@ -29,9 +33,12 @@ else
   echo "  (none found under /dev/ttyUSB* or /dev/ttyACM*)"
 fi
 
-echo ""
-printf "Enter serial port [%s]: " "$DEFAULT_PORT"
-read PORT
+PORT=""
+if is_true "$PROMPT_RAW"; then
+  echo ""
+  printf "Enter serial port [%s]: " "$DEFAULT_PORT"
+  read PORT || PORT=""
+fi
 if [ -z "${PORT}" ]; then
   PORT="$DEFAULT_PORT"
 fi

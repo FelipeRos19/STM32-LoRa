@@ -52,21 +52,18 @@ extern "C" {
 /* Exported functions prototypes ---------------------------------------------*/
 void Error_Handler(void);
 
-/* RTC prescaler-derived constants used by `Src/timer_if.c`.
- * CubeMX usually generates these in `main.h`, but this project uses a minimal header.
- * They must match `MX_RTC_Init()` configuration in `Src/rtc.c`:
- *   AsynchPrediv = 127 (2^7 - 1)
- *   SynchPrediv  = 255 (2^8 - 1)
- */
-#define RTC_N_PREDIV_A   7U
-#define RTC_N_PREDIV_S   8U
-#define RTC_PREDIV_S     ((1U << RTC_N_PREDIV_S) - 1U)
-
 /* USER CODE BEGIN EFP */
 
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define RTC_N_PREDIV_S 10
+#define RTC_PREDIV_S ((1<<RTC_N_PREDIV_S)-1)
+#define RTC_PREDIV_A ((1<<(15-RTC_N_PREDIV_S))-1)
+#define RF_TXEN_Pin GPIO_PIN_6
+#define RF_TXEN_GPIO_Port GPIOA
+#define RF_RXEN_Pin GPIO_PIN_7
+#define RF_RXEN_GPIO_Port GPIOA
 
 /* USER CODE BEGIN Private defines */
 

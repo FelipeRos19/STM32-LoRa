@@ -58,6 +58,7 @@
 extern SUBGHZ_HandleTypeDef hsubghz;
 extern DMA_HandleTypeDef hdma_usart2_tx;
 extern DMA_HandleTypeDef hdma_usart2_rx;
+extern RTC_HandleTypeDef hrtc;
 extern TIM_HandleTypeDef htim16;
 
 /* USER CODE BEGIN EV */
@@ -167,6 +168,20 @@ void DebugMon_Handler(void)
 /******************************************************************************/
 
 /**
+  * @brief This function handles RTC Tamper, RTC TimeStamp, LSECSS and RTC SSRU Interrupts.
+  */
+void TAMP_STAMP_LSECSS_SSRU_IRQHandler(void)
+{
+  /* USER CODE BEGIN TAMP_STAMP_LSECSS_SSRU_IRQn 0 */
+
+  /* USER CODE END TAMP_STAMP_LSECSS_SSRU_IRQn 0 */
+  HAL_RTCEx_SSRUIRQHandler(&hrtc);
+  /* USER CODE BEGIN TAMP_STAMP_LSECSS_SSRU_IRQn 1 */
+
+  /* USER CODE END TAMP_STAMP_LSECSS_SSRU_IRQn 1 */
+}
+
+/**
   * @brief This function handles DMA1 Channel 1 Interrupt.
   */
 void DMA1_Channel1_IRQHandler(void)
@@ -206,6 +221,20 @@ void TIM16_IRQHandler(void)
   /* USER CODE BEGIN TIM16_IRQn 1 */
 
   /* USER CODE END TIM16_IRQn 1 */
+}
+
+/**
+  * @brief This function handles RTC Alarms (A and B) Interrupt.
+  */
+void RTC_Alarm_IRQHandler(void)
+{
+  /* USER CODE BEGIN RTC_Alarm_IRQn 0 */
+
+  /* USER CODE END RTC_Alarm_IRQn 0 */
+  HAL_RTC_AlarmIRQHandler(&hrtc);
+  /* USER CODE BEGIN RTC_Alarm_IRQn 1 */
+
+  /* USER CODE END RTC_Alarm_IRQn 1 */
 }
 
 /**
