@@ -28,6 +28,13 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 project(${CMAKE_PROJECT_NAME})
 message("Build type: " ${CMAKE_BUILD_TYPE})
 
+# Host unit tests (preset "host-tests"): build only tests/ with the PC compiler
+if(STM32_LORA_HOST_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+    return()
+endif()
+
 # Enable CMake support for ASM and C languages
 enable_language(C ASM)
 
