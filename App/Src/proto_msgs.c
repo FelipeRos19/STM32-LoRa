@@ -17,7 +17,7 @@ void node_config_defaults(node_config_t *cfg)
   cfg->role = NODE_ROLE_NONE;
   cfg->interval_s = CONFIG_INTERVAL_DEF_S;
   cfg->sf = 9U;
-  cfg->bw = LORA_BW_125;
+  cfg->bw = LORA_BW_125K;
   cfg->cr = 1U;
   cfg->tx_power = 14;
   cfg->preamble = 8U;
@@ -62,7 +62,7 @@ proto_result_t node_config_validate(const node_config_t *cfg)
   {
     return RESULT_E_PARAM;
   }
-  if ((cfg->sf < 7U) || (cfg->sf > 12U) || (cfg->bw > LORA_BW_500) || (cfg->cr < 1U) || (cfg->cr > 4U)
+  if ((cfg->sf < 7U) || (cfg->sf > 12U) || (cfg->bw > LORA_BW_500K) || (cfg->cr < 1U) || (cfg->cr > 4U)
       || (cfg->tx_power < CONFIG_POWER_MIN_DBM) || (cfg->tx_power > CONFIG_POWER_MAX_DBM)
       || (cfg->preamble < CONFIG_PREAMBLE_MIN) || (cfg->preamble > CONFIG_PREAMBLE_MAX)
       || (cfg->hop != 0U))

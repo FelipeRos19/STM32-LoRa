@@ -63,13 +63,15 @@ extern uint32_t SystemCoreClock;
 #define configSUPPORT_DYNAMIC_ALLOCATION         1
 #define configUSE_IDLE_HOOK                      0
 #define configUSE_TICK_HOOK                      0
+#define configUSE_MALLOC_FAILED_HOOK             1
+#define configCHECK_FOR_STACK_OVERFLOW           2
 #define configCPU_CLOCK_HZ                       ( SystemCoreClock )
 #define configTICK_RATE_HZ                       ((TickType_t)1000)
 #define configMAX_PRIORITIES                     ( 56 )
 #define configUSE_SB_COMPLETED_CALLBACK          ( 0 )
 #define configUSE_MINI_LIST_ITEM                ( 1 )
 #define configMINIMAL_STACK_SIZE                 ((uint16_t)256)
-#define configTOTAL_HEAP_SIZE                    ((size_t)20480)
+#define configTOTAL_HEAP_SIZE                    ((size_t)30720)
 #define configMAX_TASK_NAME_LEN                  ( 16 )
 #define configHEAP_CLEAR_MEMORY_ON_FREE          0
 #define configUSE_TRACE_FACILITY                 1
@@ -165,6 +167,9 @@ standard names. */
 
 /* USER CODE BEGIN Defines */
 /* Section where parameter definitions can be added (for instance, to override default ones in FreeRTOS.h) */
+/* The heap (ucHeap) lives in SRAM2, see App/Src/rtos_heap.c, leaving SRAM1 for
+ * .data/.bss and the main stack. */
+#define configAPPLICATION_ALLOCATED_HEAP         1
 /* USER CODE END Defines */
 
 #endif /* FREERTOS_CONFIG_H */

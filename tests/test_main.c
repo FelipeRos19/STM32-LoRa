@@ -216,6 +216,25 @@ static void test_frame_resync(void)
   CHECK_EQ(sink.timeouts, 1);
   CHECK_EQ(sink.frames, 1);
 
+  /* Noise followed by frames that arrive while a noise candidate is stalled:
+   * the timeout rescan must deliver both frames, for many noise patterns. */
+  for (unsigned seed = 0; seed < 50U; seed++)
+  {
+    memset(&sink, 0, sizeof(sink));
+    proto_decoder_init(&dec);
+    srand(seed);
+    for (int i = 0; i < 3000; i++)
+    {
+      uint8_t b = (uint8_t)(rand() & 0xFF);
+      proto_decoder_feed(&dec, &b, 1, 0, sink_cb, &sink);
+    }
+    int noise_frames = sink.frames;
+    proto_decoder_feed(&dec, good, n_good, 50, sink_cb, &sink);
+    proto_decoder_feed(&dec, good, n_good, 50, sink_cb, &sink);
+    proto_decoder_poll(&dec, 500, sink_cb, &sink);
+    CHECK_EQ(sink.frames - noise_frames, 2);
+  }
+
   /* Two stalled spurious candidates nested before a real frame */
   memset(&sink, 0, sizeof(sink));
   proto_decoder_init(&dec);
@@ -230,14 +249,14 @@ static void test_frame_resync(void)
 
 static uint32_t toa_ms(uint8_t sf, uint8_t pl)
 {
-  lora_phy_t phy = { .sf = sf, .bw = LORA_BW_125, .cr = 1, .preamble = 8, .crc_on = true,
+  lora_phy_t phy = { .sf = sf, .bw = LORA_BW_125K, .cr = 1, .preamble = 8, .crc_on = true,
                      .implicit_header = false };
   return (lora_toa_us(&phy, pl) + 500U) / 1000U;
 }
 
 static int16_t max_pl(uint8_t sf)
 {
-  lora_phy_t phy = { .sf = sf, .bw = LORA_BW_125, .cr = 1, .preamble = 8, .crc_on = true,
+  lora_phy_t phy = { .sf = sf, .bw = LORA_BW_125K, .cr = 1, .preamble = 8, .crc_on = true,
                      .implicit_header = false };
   return lora_max_payload(&phy, LORA_DWELL_LIMIT_US);
 }

@@ -52,11 +52,28 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
+    # Hardware-independent protocol core (also built by tests/)
+    App/Src/crc16.c
+    App/Src/proto_frame.c
+    App/Src/lora_toa.c
+    App/Src/alert_packet.c
+    App/Src/proto_msgs.c
+    # Firmware services
+    App/Src/app_log.c
+    App/Src/app_random.c
+    App/Src/node_diag.c
+    App/Src/nvm_store.c
+    App/Src/rtos_heap.c
+    App/Src/supervisor.c
+    App/Src/serial_link.c
+    App/Src/radio_link.c
+    App/Src/node_app.c
 )
 
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths
+    App/Inc
 )
 
 # Add project symbols (macros)
@@ -96,6 +113,7 @@ set(FLASH_PORT "/dev/ttyUSB0" CACHE STRING "Serial port for UART flashing (promp
 set(FLASH_BAUD "115200"       CACHE STRING "Baud rate for UART flashing")
 set(FLASH_PROMPT ON            CACHE BOOL   "Ask for the serial port before flashing (turn OFF in IDEs without a terminal)")
 set(FLASH_KILL_ALL OFF         CACHE BOOL   "Kill processes using any /dev/ttyUSB* and /dev/ttyACM*, not only FLASH_PORT")
+set(FLASH_REQUEST_BOOT ON      CACHE BOOL   "Send the ENTER_BOOTLOADER frame to the running firmware before flashing")
 
 add_custom_target(flash
     DEPENDS ${CMAKE_PROJECT_NAME}
@@ -105,6 +123,7 @@ add_custom_target(flash
         ${FLASH_PORT}
         ${FLASH_KILL_ALL}
         ${FLASH_PROMPT}
+        ${FLASH_REQUEST_BOOT}
     USES_TERMINAL
     COMMENT "Flashing ${CMAKE_PROJECT_NAME}.bin to STM32 via UART"
 )

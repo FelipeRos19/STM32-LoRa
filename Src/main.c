@@ -32,7 +32,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include <stdio.h>
+#include "app_log.h"
+#include "node_diag.h"
+#include "proto_defs.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -53,11 +55,8 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-/* Boot progress marker to debug early hangs without UART/SWD.
- * Updated throughout `main()`; `Error_Handler()` blinks it out on PB3.
- */
+/* Boot progress marker, blinked out on PB3 by Error_Handler() */
 volatile uint32_t g_boot_stage = 0;
-volatile uint8_t g_iwdg_started = 0U;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -69,34 +68,7 @@ void MX_FREERTOS_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void JumpToBootloader(void)
-{
-  uint32_t i=0;
 
-  /* Disable all interrupts */
-  __disable_irq();
-
-  /* Disable SysTick */
-  SysTick->CTRL = 0;
-
-  /* Clear all interrupt pending bits */
-  for(i=0; i<5; i++)
-  {
-    NVIC->ICER[i] = 0xFFFFFFFF;
-    NVIC->ICPR[i] = 0xFFFFFFFF;
-  }
-
-  __enable_irq();
-
-  /* STM32WLE5 system memory address */
-  void (*SysMemBootJump)(void) = (void (*)(void)) (*((uint32_t *) (0x1FFF0004)));
-
-  /* Set MSP */
-  __set_MSP(*(uint32_t *)0x1FFF0000);
-
-  /* Jump */
-  SysMemBootJump();
-}
 /* USER CODE END 0 */
 
 /**
@@ -107,7 +79,9 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
+  /* Before anything else: latch the reset cause and, if the app asked for
+   * it (ENTER_BOOTLOADER), jump to the ST system bootloader from a clean reset. */
+  diag_early_boot();
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -135,16 +109,9 @@ int main(void)
   MX_IWDG_Init();
   MX_RNG_Init();
   /* USER CODE BEGIN 2 */
-  g_iwdg_started = 1U;
   g_boot_stage = 3;
-  {
-    char banner[48];
-    int n = snprintf(banner, sizeof(banner), "BOOT: SYSCLK=%lu Hz\r\n", (unsigned long)SystemCoreClock);
-    if (n > 0)
-    {
-      (void)HAL_UART_Transmit(&huart2, (uint8_t*)banner, (uint16_t)n, 200);
-    }
-  }
+  APP_LOG("boot: fw %u.%u.%u proto %u SYSCLK=%lu reset=%u", FW_VERSION_MAJOR, FW_VERSION_MINOR,
+          FW_VERSION_PATCH, PROTO_VERSION, (unsigned long)SystemCoreClock, (unsigned)diag_reset_cause());
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -260,32 +227,24 @@ void Error_Handler(void)
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
 
-  /* Try to indicate a fatal error even if UART/RTOS is dead.
-   * PB3 is used as a debug LED in this project.
-   */
+  /* Blink the last boot stage on PB3 (N short pulses, 3 times), then reset:
+   * a field node must recover by itself instead of hanging here. */
   __HAL_RCC_GPIOB_CLK_ENABLE();
   GPIOB->MODER = (GPIOB->MODER & ~(3U << (3U * 2U))) | (1U << (3U * 2U)); /* PB3 output */
 
-  while (1)
+  uint32_t n = (g_boot_stage == 0U) ? 9U : g_boot_stage;
+  for (uint32_t rep = 0; rep < 3U; rep++)
   {
-    /* Blink out the last boot stage in decimal pulses.
-     * Pattern: N short blinks then a pause.
-     */
-    uint32_t n = g_boot_stage;
-    if (n == 0U) { n = 99U; }
-
     for (uint32_t k = 0; k < n; k++)
     {
       GPIOB->BSRR = (1U << 3);
-      for (volatile uint32_t i = 0; i < 40000U; i++) { __NOP(); }
+      for (volatile uint32_t i = 0; i < 400000U; i++) { __NOP(); }
       GPIOB->BSRR = (1U << (3 + 16));
-      for (volatile uint32_t i = 0; i < 70000U; i++) { __NOP(); }
-      if (g_iwdg_started != 0U) { (void)HAL_IWDG_Refresh(&hiwdg); }
+      for (volatile uint32_t i = 0; i < 700000U; i++) { __NOP(); }
     }
-
-    for (volatile uint32_t i = 0; i < 600000U; i++) { __NOP(); }
-    if (g_iwdg_started != 0U) { (void)HAL_IWDG_Refresh(&hiwdg); }
+    for (volatile uint32_t i = 0; i < 3000000U; i++) { __NOP(); }
   }
+  diag_fault_reset(DIAG_FAULT_ERROR_HANDLER, NULL);
   /* USER CODE END Error_Handler_Debug */
 }
 #ifdef USE_FULL_ASSERT

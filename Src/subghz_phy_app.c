@@ -25,10 +25,7 @@
 #include "radio.h"
 
 /* USER CODE BEGIN Includes */
-#include <string.h>
-#include "cmsis_os2.h"
-#include "lora_test.h"
-#include "usart.h"
+#include "radio_link.h"
 /* USER CODE END Includes */
 
 /* External variables ---------------------------------------------------------*/
@@ -44,19 +41,6 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
-/* Simple 915 MHz bring-up defaults (mesh-friendly starting point)
- * - Single channel
- * - BW125/SF7/CR4/5
- * - Explicit header, CRC on
- */
-#define LORA_FREQ_HZ                 915100000UL
-#define LORA_BW                      0U      /* 0=125kHz, 1=250kHz, 2=500kHz */
-#define LORA_SF                      7U      /* 6..12 */
-#define LORA_CR                      1U      /* 1=4/5, 2=4/6, 3=4/7, 4=4/8 */
-#define LORA_PREAMBLE_LEN            8U
-/* Bench value: keep low while boards are close together (HP PA allows up to 22). */
-#define LORA_TX_POWER_DBM            10
-#define LORA_TX_TIMEOUT_MS           3000UL
 
 /* USER CODE END PD */
 
@@ -104,7 +88,11 @@ static void OnRxTimeout(void);
 static void OnRxError(void);
 
 /* USER CODE BEGIN PFP */
-
+/**
+  * @brief Function executed on Radio CAD Done event
+  * @param channelActivityDetected true if a LoRa preamble was detected
+  */
+static void OnCadDone(bool channelActivityDetected);
 /* USER CODE END PFP */
 
 /* Exported functions ---------------------------------------------------------*/
@@ -124,42 +112,11 @@ void SubghzApp_Init(void)
   Radio.Init(&RadioEvents);
 
   /* USER CODE BEGIN SubghzApp_Init_2 */
-  /* LoRa PHY configuration (single-channel, continuous RX) */
-  Radio.SetModem(MODEM_LORA);
-  Radio.SetPublicNetwork(false);
-  Radio.SetChannel(LORA_FREQ_HZ);
-
-  Radio.SetTxConfig(MODEM_LORA,
-                    LORA_TX_POWER_DBM,
-                    0,
-                    LORA_BW,
-                    LORA_SF,
-                    LORA_CR,
-                    LORA_PREAMBLE_LEN,
-                    false,
-                    true,
-                    false,
-                    0,
-                    false,
-                    LORA_TX_TIMEOUT_MS);
-
-  Radio.SetRxConfig(MODEM_LORA,
-                    LORA_BW,
-                    LORA_SF,
-                    LORA_CR,
-                    0,
-                    LORA_PREAMBLE_LEN,
-                    0,
-                    false,
-                    0,
-                    true,
-                    false,
-                    0,
-                    false,
-                    true);
-
-  Radio.SetMaxPayloadLength(MODEM_LORA, 255);
-  Radio.Rx(0);
+  /* The radio task (App/Src/radio_link.c) owns the radio from here on: it
+   * applies the LoRa configuration received from the app. */
+  RadioEvents.CadDone = OnCadDone;
+  Radio.Sleep();
+  radio_link_set_ready();
   /* USER CODE END SubghzApp_Init_2 */
 }
 
@@ -171,59 +128,43 @@ void SubghzApp_Init(void)
 static void OnTxDone(void)
 {
   /* USER CODE BEGIN OnTxDone */
-  HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_3);
-
-  lora_evt_t evt = {0};
-  evt.type = LORA_EVT_TX_DONE;
-  (void)osMessageQueuePut(loraEvtQueueHandle, &evt, 0, 0);
+  HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_3);   /* activity LED */
+  radio_link_on_tx_done();
   /* USER CODE END OnTxDone */
 }
 
 static void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t LoraSnr_FskCfo)
 {
   /* USER CODE BEGIN OnRxDone */
-  HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_3);
-
-  lora_evt_t evt = {0};
-  evt.type = LORA_EVT_RX_DONE;
-  evt.rssi = rssi;
-  evt.snr = LoraSnr_FskCfo;
-  evt.size = (size > sizeof(evt.payload)) ? (uint16_t)sizeof(evt.payload) : size;
-  if (evt.size > 0U)
-  {
-    memcpy(evt.payload, payload, evt.size);
-  }
-  (void)osMessageQueuePut(loraEvtQueueHandle, &evt, 0, 0);
+  HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_3);   /* activity LED */
+  radio_link_on_rx_done(payload, size, rssi, LoraSnr_FskCfo);
   /* USER CODE END OnRxDone */
 }
 
 static void OnTxTimeout(void)
 {
   /* USER CODE BEGIN OnTxTimeout */
-  lora_evt_t evt = {0};
-  evt.type = LORA_EVT_TX_TIMEOUT;
-  (void)osMessageQueuePut(loraEvtQueueHandle, &evt, 0, 0);
+  radio_link_on_tx_timeout();
   /* USER CODE END OnTxTimeout */
 }
 
 static void OnRxTimeout(void)
 {
   /* USER CODE BEGIN OnRxTimeout */
-  lora_evt_t evt = {0};
-  evt.type = LORA_EVT_RX_TIMEOUT;
-  (void)osMessageQueuePut(loraEvtQueueHandle, &evt, 0, 0);
+  radio_link_on_rx_timeout();
   /* USER CODE END OnRxTimeout */
 }
 
 static void OnRxError(void)
 {
   /* USER CODE BEGIN OnRxError */
-  lora_evt_t evt = {0};
-  evt.type = LORA_EVT_RX_ERROR;
-  (void)osMessageQueuePut(loraEvtQueueHandle, &evt, 0, 0);
+  radio_link_on_rx_error();
   /* USER CODE END OnRxError */
 }
 
 /* USER CODE BEGIN PrFD */
-
+static void OnCadDone(bool channelActivityDetected)
+{
+  radio_link_on_cad_done(channelActivityDetected);
+}
 /* USER CODE END PrFD */

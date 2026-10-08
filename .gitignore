@@ -1,3 +1,6 @@
 # Build output
 /build/
 /cmake-build-*/
+
+# Python bytecode
+__pycache__/

@@ -12,13 +12,13 @@
 
 static bool phy_valid(const lora_phy_t *phy)
 {
-  return (phy != NULL) && (phy->sf >= 7U) && (phy->sf <= 12U) && (phy->bw <= LORA_BW_500)
+  return (phy != NULL) && (phy->sf >= 7U) && (phy->sf <= 12U) && (phy->bw <= LORA_BW_500K)
          && (phy->cr >= 1U) && (phy->cr <= 4U);
 }
 
 bool lora_ldro_enabled(const lora_phy_t *phy)
 {
-  return ((phy->bw == LORA_BW_125) && (phy->sf >= 11U)) || ((phy->bw == LORA_BW_250) && (phy->sf == 12U));
+  return ((phy->bw == LORA_BW_125K) && (phy->sf >= 11U)) || ((phy->bw == LORA_BW_250K) && (phy->sf == 12U));
 }
 
 uint32_t lora_toa_us(const lora_phy_t *phy, uint8_t payload_len)

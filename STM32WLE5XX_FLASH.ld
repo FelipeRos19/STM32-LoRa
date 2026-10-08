@@ -11,15 +11,19 @@ ENTRY(Reset_Handler)
 /* Memories definition */
 MEMORY
 {
-  ROM    (rx)    : ORIGIN = 0x08000000, LENGTH = 256K
+  ROM    (rx)    : ORIGIN = 0x08000000, LENGTH = 254K
+  NVM    (r)     : ORIGIN = 0x0803F800, LENGTH = 2K     /* Last page: App/Src/nvm_store.c */
   RAM1   (xrw)   : ORIGIN = 0x20000000, LENGTH = 32K    /* Non-backup SRAM1 */
   RAM2   (xrw)   : ORIGIN = 0x20008000, LENGTH = 32K    /* Backup SRAM2 */
 }
 /* Highest address of the user mode stack */
 _estack = ORIGIN(RAM1) + LENGTH(RAM1); /* end of "SRAM1" Ram type memory */
 
+/* Persistent configuration page (never part of the firmware image) */
+__nvm_start = ORIGIN(NVM);
+
 _Min_Heap_Size = 0x200;      /* required amount of heap  */
-_Min_Stack_Size = 0x400; /* required amount of stack */
+_Min_Stack_Size = 0x800; /* required amount of stack */
 
 /* Sections */
 SECTIONS
@@ -197,12 +201,15 @@ SECTIONS
     _eRAM1_region = .;         /* define a global symbol at section end */
   } >RAM1
 
-  /* Data section into "SRAM2" Ram type memory: Backup SRAM2 dedicated to CM4 */
+  /* Data section into "SRAM2" Ram type memory: Backup SRAM2 dedicated to CM4.
+   * NOLOAD: not initialised by the startup code, so it survives software
+   * resets (FreeRTOS heap, reset-surviving diagnostics). */
   . = ALIGN(8);
-  RAM2_region :
+  RAM2_region (NOLOAD) :
   {
     _sRAM2_region = .;         /* define a global symbol at section start */
     *(.RAM2_region)
+    *(.RAM2_region.*)
 
     . = ALIGN(8);
     _eRAM2_region = .;         /* define a global symbol at section end */

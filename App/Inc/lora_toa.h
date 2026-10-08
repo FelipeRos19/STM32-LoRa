@@ -17,9 +17,9 @@
 #define LORA_DWELL_LIMIT_US  400000UL
 
 /* Bandwidth codes, same values as the SubGHz_Phy driver (0=125, 1=250, 2=500 kHz) */
-#define LORA_BW_125          0U
-#define LORA_BW_250          1U
-#define LORA_BW_500          2U
+#define LORA_BW_125K          0U
+#define LORA_BW_250K          1U
+#define LORA_BW_500K          2U
 
 typedef struct
 {
