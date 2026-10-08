@@ -92,6 +92,12 @@ void diag_early_boot(void)
     s_noinit.bootloader_magic = 0;
     jump_to_system_bootloader();
   }
+
+  /* SystemInit() leaves VTOR untouched. After a reset it is 0 (flash alias),
+   * but when started by the ST bootloader's Go command it still points to
+   * system memory, and the first interrupt would run a bootloader handler. */
+  SCB->VTOR = FLASH_BASE;
+  __DSB();
 }
 
 reset_cause_t diag_reset_cause(void)

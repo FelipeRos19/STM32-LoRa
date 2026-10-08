@@ -53,6 +53,8 @@ extern "C" {
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
+/* RTC clock source: LSE, or LSI if the 32.768 kHz crystal failed to start */
+uint32_t main_rtc_clock_source(void);
 
 /* USER CODE END EFP */
 

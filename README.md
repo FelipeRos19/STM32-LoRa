@@ -46,7 +46,7 @@ O mesmo firmware atende os dois papéis do TCC. O papel é definido pelo quadro 
 - **Warmup:** ao ligar sem configuração gravada, o nó fica em `WAIT_CONFIG` e envia um `STATUS` por segundo até o aplicativo falar. Com configuração gravada, volta no último papel e retoma um alerta que estivesse ativo.
 
 ### Ferramenta de bancada (emula o aplicativo)
-Requer `pip install pyserial`.
+Requer pyserial: `python -m venv .venv && .venv/bin/pip install pyserial` (depois use `.venv/bin/python tools/node_cli.py ...`), ou `sudo pacman -S python-pyserial`.
 ```bash
 tools/node_cli.py -p /dev/ttyUSB0 monitor
 tools/node_cli.py -p /dev/ttyUSB0 config --role beacon --user-id 0x0A1B2C3D --sf 9 --power 10
@@ -67,5 +67,7 @@ O `.ioc` é a fonte da verdade; ao regenerar pelo CubeMX, mantenha o código pr�
 - **Clock:** SYSCLK = MSI 48 MHz, com autocalibração pelo LSE. O cristal de 32 MHz (HSE) é usado só pelo rádio.
 - **LSE 32,768 kHz:** cristal interno do módulo (PC14/PC15). Alimenta o RTC.
 - **RTC:** modo binário com Alarm A e SSRU, exigidos pelo timer server do SubGHz_Phy.
-- **Rádio:** `IS_TCXO_SUPPORTED = 0` (cristal, sem TCXO), PA de alta potência (`RBI_CONF_RFO_HP`) e DCDC desligado.
+- **Rádio:** `IS_TCXO_SUPPORTED = 1`, PA de alta potência (`RBI_CONF_RFO_HP`) e DCDC desligado. A referência de 32 MHz do rádio é alimentada pela saída VDD_TCXO. Testado em bancada em 08/10/2026: com 0, nem o CAD nem a TX terminam.
+- **Clock com fallback:** se o cristal LSE não oscilar, o RTC passa para o LSI e a flag `LSE_FALLBACK` é marcada. É código editado à mão em `SystemClock_Config` e em `rtc.c`: uma regeneração pelo CubeMX desfaz.
+- **VTOR:** fixado na flash em `diag_early_boot()`, para o firmware funcionar quando é iniciado pelo comando *Go* do bootloader.
 - **Chave de RF:** PA6 = `RF_TXEN`, PA7 = `RF_RXEN`. Os dois nunca podem ficar em nível alto ao mesmo tempo.

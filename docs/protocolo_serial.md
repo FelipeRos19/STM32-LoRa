@@ -170,6 +170,7 @@ Mensagens de depuração, emitidas só em build Debug. O aplicativo deve ignorá
 | 5 | rádio reinicializado após erros |
 | 6 | transmissão feita com o canal ocupado, depois de esgotar as tentativas de CAD |
 | 7 | quadro descartado por fila de TX serial cheia |
+| 8 | cristal LSE (32,768 kHz) não oscilou; RTC rodando no LSI |
 
 ## 4. Pacote de rádio (porta de alerta)
 

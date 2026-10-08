@@ -38,7 +38,7 @@ STATES = ["WAIT_CONFIG", "BEACON_IDLE", "BEACON_ALERT", "SNIFFER_RX"]
 ROLES = ["NONE", "BEACON", "SNIFFER"]
 RESET_CAUSES = ["UNKNOWN", "POWER_ON", "PIN", "SOFTWARE", "IWDG", "WWDG", "LOW_POWER", "BROWNOUT"]
 ERR_FLAGS = ["SERIAL_CRC", "SERIAL_OVERFLOW", "NVM_READ", "NVM_WRITE", "RADIO_TX_TIMEOUT",
-             "RADIO_RESET", "CAD_BUSY", "SERIAL_TX_DROP"]
+             "RADIO_RESET", "CAD_BUSY", "SERIAL_TX_DROP", "LSE_FALLBACK"]
 USER_STATUS = ["SEGURO", "PERIGO", "PERDIDO", "FERIDO", "INCENDIO", "ILHADO", "SEM_SUPRIMENTOS"]
 BW_CODES = {125: 0, 250: 1, 500: 2}
 
@@ -172,14 +172,16 @@ class Node:
 
         self.ser = serial.Serial(port, baud, timeout=0.05)
         self.dec = FrameDecoder()
+        self.pending = []   # frames decoded but not yet consumed
 
     def read_frames(self, duration: float):
         end = time.monotonic() + duration
         while time.monotonic() < end:
-            data = self.ser.read(256)
-            frames = self.dec.feed(data) if data else self.dec.poll()
-            for frame in frames:
-                yield frame
+            if not self.pending:
+                data = self.ser.read(256)
+                self.pending.extend(self.dec.feed(data) if data else self.dec.poll())
+            while self.pending:
+                yield self.pending.pop(0)
 
     def request(self, ftype: int, payload: bytes = b"", retries: int = 3, timeout: float = 0.5):
         """Sends a command and waits for its STATUS acknowledgement."""
@@ -260,7 +262,17 @@ def main():
     parser.add_argument("-p", "--port", default="/dev/ttyUSB0")
     parser.add_argument("-b", "--baud", type=int, default=115200)
     parser.add_argument("--follow", action="store_true", help="keep printing frames after the command")
+    # --follow is also accepted after the subcommand
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--follow", action="store_true", default=argparse.SUPPRESS,
+                        help="keep printing frames after the command")
     sub = parser.add_subparsers(dest="cmd", required=True)
+    add = sub.add_parser
+
+    def add_parser(name, **kw):
+        return add(name, parents=[common], **kw)
+
+    sub.add_parser = add_parser
 
     sub.add_parser("monitor", help="print every frame from the node")
     sub.add_parser("status", help="GET_STATUS")

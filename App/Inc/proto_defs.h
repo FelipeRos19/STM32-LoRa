@@ -73,6 +73,7 @@ typedef enum
 #define ERR_FLAG_RADIO_RESET       (1U << 5)  /* radio re-initialised after errors */
 #define ERR_FLAG_CAD_BUSY          (1U << 6)  /* sent after exhausting CAD retries */
 #define ERR_FLAG_SERIAL_TX_DROP    (1U << 7)  /* TX queue full, frame dropped */
+#define ERR_FLAG_LSE_FALLBACK      (1U << 8)  /* 32.768 kHz crystal failed, RTC on LSI */
 
 /* STATUS.reset_cause */
 typedef enum

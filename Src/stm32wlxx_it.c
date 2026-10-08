@@ -22,6 +22,7 @@
 #include "stm32wlxx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "node_diag.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -59,6 +60,7 @@ extern SUBGHZ_HandleTypeDef hsubghz;
 extern DMA_HandleTypeDef hdma_usart2_tx;
 extern DMA_HandleTypeDef hdma_usart2_rx;
 extern RTC_HandleTypeDef hrtc;
+extern UART_HandleTypeDef huart2;
 extern TIM_HandleTypeDef htim16;
 
 /* USER CODE BEGIN EV */
@@ -89,16 +91,13 @@ void NMI_Handler(void)
 void HardFault_Handler(void)
 {
   /* USER CODE BEGIN HardFault_IRQn 0 */
-  __disable_irq();
-
-  /* Blink PB3 fast to indicate a fault. */
-  __HAL_RCC_GPIOB_CLK_ENABLE();
-  GPIOB->MODER = (GPIOB->MODER & ~(3U << (3U * 2U))) | (1U << (3U * 2U)); /* PB3 output */
+  /* Record the fault in SRAM2 and reset: the next boot reports it (LOG) */
+  diag_fault_reset(DIAG_FAULT_HARDFAULT, NULL);
   /* USER CODE END HardFault_IRQn 0 */
   while (1)
   {
-    GPIOB->ODR ^= (1U << 3);
-    for (volatile uint32_t i = 0; i < 60000U; i++) { __NOP(); }
+    /* USER CODE BEGIN W1_HardFault_IRQn 0 */
+    /* USER CODE END W1_HardFault_IRQn 0 */
   }
 }
 
@@ -221,6 +220,20 @@ void TIM16_IRQHandler(void)
   /* USER CODE BEGIN TIM16_IRQn 1 */
 
   /* USER CODE END TIM16_IRQn 1 */
+}
+
+/**
+  * @brief This function handles USART2 Interrupt.
+  */
+void USART2_IRQHandler(void)
+{
+  /* USER CODE BEGIN USART2_IRQn 0 */
+
+  /* USER CODE END USART2_IRQn 0 */
+  HAL_UART_IRQHandler(&huart2);
+  /* USER CODE BEGIN USART2_IRQn 1 */
+
+  /* USER CODE END USART2_IRQn 1 */
 }
 
 /**

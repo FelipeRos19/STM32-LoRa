@@ -4,3 +4,6 @@
 
 # Python bytecode
 __pycache__/
+
+# Local Python virtualenv (tools/node_cli.py)
+.venv/

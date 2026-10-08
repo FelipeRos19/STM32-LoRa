@@ -32,6 +32,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdbool.h>
 #include "app_log.h"
 #include "node_diag.h"
 #include "proto_defs.h"
@@ -57,12 +58,15 @@
 /* USER CODE BEGIN PV */
 /* Boot progress marker, blinked out on PB3 by Error_Handler() */
 volatile uint32_t g_boot_stage = 0;
+/* 32.768 kHz crystal running (else the RTC runs on LSI) */
+static bool s_lse_ready;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 void MX_FREERTOS_Init(void);
 /* USER CODE BEGIN PFP */
+static bool start_lse(void);
 
 /* USER CODE END PFP */
 
@@ -110,6 +114,10 @@ int main(void)
   MX_RNG_Init();
   /* USER CODE BEGIN 2 */
   g_boot_stage = 3;
+  if (!s_lse_ready)
+  {
+    APP_LOG("boot: LSE 32.768 kHz did not start, RTC on LSI");
+  }
   APP_LOG("boot: fw %u.%u.%u proto %u SYSCLK=%lu reset=%u", FW_VERSION_MAJOR, FW_VERSION_MINOR,
           FW_VERSION_PATCH, PROTO_VERSION, (unsigned long)SystemCoreClock, (unsigned)diag_reset_cause());
   /* USER CODE END 2 */
@@ -155,10 +163,9 @@ void SystemClock_Config(void)
   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
   /** Initializes the CPU, AHB and APB buses clocks
+  *   (internal oscillators only: they always start; LSE is handled below)
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_LSE
-                              |RCC_OSCILLATORTYPE_MSI;
-  RCC_OscInitStruct.LSEState = RCC_LSE_ON;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_MSI;
   RCC_OscInitStruct.LSIDiv = RCC_LSI_DIV1;
   RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.MSIState = RCC_MSI_ON;
@@ -186,12 +193,48 @@ void SystemClock_Config(void)
     Error_Handler();
   }
 
-  /** Enable MSI Auto calibration
-  */
-  HAL_RCCEx_EnableMSIPLLMode();
+  /* NOTE: hand-written (CubeMX generates a single OscConfig with LSE and
+   * would call Error_Handler() if the crystal does not start, bricking the
+   * node in a silent reset loop). A failed LSE falls back to LSI for the RTC. */
+  s_lse_ready = start_lse();
+  if (s_lse_ready)
+  {
+    /** Enable MSI Auto calibration
+    */
+    HAL_RCCEx_EnableMSIPLLMode();
+  }
+  else
+  {
+    diag_set_flag(ERR_FLAG_LSE_FALLBACK);
+  }
 }
 
 /* USER CODE BEGIN 4 */
+/* Starts the LSE crystal; retries with a stronger drive before giving up. */
+static bool start_lse(void)
+{
+  static const uint32_t drives[] = { RCC_LSEDRIVE_LOW, RCC_LSEDRIVE_MEDIUMHIGH };
+  RCC_OscInitTypeDef osc = {0};
+
+  for (uint32_t i = 0; i < (sizeof(drives) / sizeof(drives[0])); i++)
+  {
+    __HAL_RCC_LSEDRIVE_CONFIG(drives[i]);
+    osc.OscillatorType = RCC_OSCILLATORTYPE_LSE;
+    osc.LSEState = RCC_LSE_ON;
+    if (HAL_RCC_OscConfig(&osc) == HAL_OK)
+    {
+      return true;
+    }
+    osc.LSEState = RCC_LSE_OFF;
+    (void)HAL_RCC_OscConfig(&osc);
+  }
+  return false;
+}
+
+uint32_t main_rtc_clock_source(void)
+{
+  return s_lse_ready ? RCC_RTCCLKSOURCE_LSE : RCC_RTCCLKSOURCE_LSI;
+}
 
 /* USER CODE END 4 */
 

@@ -69,7 +69,7 @@ extern "C" {
  * 0: TCXO not supported
  * 1: TCXO supported
  */
-#define IS_TCXO_SUPPORTED                   0U
+#define IS_TCXO_SUPPORTED                   1U
 
 /* Indicates whether or not DCDC is supported by the board
  * 0: DCDC not supported
@@ -89,8 +89,10 @@ extern "C" {
 
 #else
 /* USER CODE BEGIN Exported PinMapping */
-/* E77-900M22S: 32 MHz crystal (no TCXO), HP PA only, internal RF switch driven
- * by RF_TXEN (PA6) / RF_RXEN (PA7), see RBI_ConfigRFSwitch().
+/* E77-900M22S: 32 MHz reference driven by the radio's VDD_TCXO output
+ * (bench test 2026-10-08: with IS_TCXO_SUPPORTED = 0 neither CAD nor TX ever
+ * complete), HP PA only, internal RF switch driven by RF_TXEN (PA6) /
+ * RF_RXEN (PA7), see RBI_ConfigRFSwitch().
  */
 /* USER CODE END Exported PinMapping */
 #endif  /* USE_BSP_DRIVER  */
