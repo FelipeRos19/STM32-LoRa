@@ -47,7 +47,6 @@ set(MX_Application_Src
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Src/radio_board_if.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Src/timer_if.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Src/stm32_adv_trace_if.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../Src/tim.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Src/usart.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Src/stm32wlxx_it.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Src/stm32wlxx_hal_msp.c

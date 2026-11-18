@@ -38,14 +38,10 @@ void MX_RNG_Init(void)
 
   /* USER CODE END RNG_Init 1 */
   hrng.Instance = RNG;
-  /* During bring-up we keep RNG initialization non-fatal and disable clock error detection.
-   * (Clock selection may vary depending on whether PLL is enabled.)
-   */
-  hrng.Init.ClockErrorDetection = RNG_CED_DISABLE;
+  hrng.Init.ClockErrorDetection = RNG_CED_ENABLE;
   if (HAL_RNG_Init(&hrng) != HAL_OK)
   {
-    /* RNG not available; continue without it. */
-    return;
+    Error_Handler();
   }
   /* USER CODE BEGIN RNG_Init 2 */
 
@@ -66,23 +62,11 @@ void HAL_RNG_MspInit(RNG_HandleTypeDef* rngHandle)
   /** Initializes the peripherals clocks
   */
     PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_RNG;
-
-    /* If PLL is not running (e.g. HSI debug fallback), do not select PLLQ as RNG clock.
-     * Use LSI instead so bring-up can proceed.
-     */
-    if (__HAL_RCC_GET_FLAG(RCC_FLAG_PLLRDY) != RESET)
-    {
-      PeriphClkInitStruct.RngClockSelection = RCC_RNGCLKSOURCE_PLL;
-    }
-    else
-    {
-      PeriphClkInitStruct.RngClockSelection = RCC_RNGCLKSOURCE_LSI;
-    }
+    PeriphClkInitStruct.RngClockSelection = RCC_RNGCLKSOURCE_MSI;
 
     if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
     {
-      /* Clock config failed; keep RNG disabled. */
-      return;
+      Error_Handler();
     }
 
     /* RNG clock enable */
